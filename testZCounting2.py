@@ -9,9 +9,10 @@ from operator import truediv
 import random
 import math
 import pandas
+import os.path
 
-inFile="testCSV2.csv"
-chunkSize=200
+inFile="/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_trig.csv"
+chunkSize=50
 eosDir="/eos/cms/store/group/comm_luminosity/ZCounting/DQMFiles2017/cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2017/SingleMuon/"
 
 HLTeff=array('d')
@@ -28,7 +29,6 @@ beginTime=[]
 endTime=[]
 fillarray=array('d')
 windowarray=array('d')
-
 
 ROOT.gROOT.Macro( os.path.expanduser( '~/.rootlogon.C' ) )
 ROOT.gROOT.LoadMacro("calculateDataEfficiency_v2.C")
@@ -57,32 +57,53 @@ print fillRunlist
 print "length LS list: "+str(len(LSlist))
 print "length Run list: "+str(len(fillRunlist))
 
-nMeasurements=0
+
 
 for run_i in range(0,len(fillRunlist)):
-    nMeasurements=nMeasurements+1
+
     run=int(fillRunlist[run_i].split(':')[0])
     fill=int(fillRunlist[run_i].split(':')[1])
     print run
     print fill
 
-    if run<300122 or run>304062:
-	continue
 
+    ## CHANGE THIS
+    if run<303824: #or run>303062:
+	continue
     if run<302030:
 	era="C"
     if run>=302030 and run<303434:
 	era="D"
     if run>=303434:
 	era="E"
-    
-
-    
+        
     LSchunks 	= [LSlist[run_i][x:x+chunkSize] for x in range(0, len(LSlist[run_i]), chunkSize)]
-    Del_chunks  = [delLumiList[run_i][x:x+chunkSize] for x in range(0, len(delLumiList[run_i]), chunkSize)] 
+
+    Del_chunks  = [delLumiList[run_i][x:x+chunkSize] for x in range(0, len(delLumiList[run_i]), chunkSize)]
+
     Rec_chunks  = [recLumiList[run_i][x:x+chunkSize] for x in range(0, len(recLumiList[run_i]), chunkSize)]
+
     time_chunks = [timeList[run_i][x:x+chunkSize] for x in range(0, len(timeList[run_i]), chunkSize)]
+
+    Zyield=array('d')  
+    Zrate=array('d')
+    lumiDel=array('d')
+    instDel=array('d')
+    beginTime=[]
+    endTime=[]
+    fillarray=array('d')
+    windowarray=array('d')
+    nMeasurements=0
+
+    if not os.path.isfile(eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root"):
+	print "hello"
+	continue
+
     for chunk_i in range(0,len(LSchunks)):
+	if float(LSchunks[chunk_i][-1]) > 2499.:
+                continue 
+   	nMeasurements=nMeasurements+1
+
 	recLumi_i = sum(Rec_chunks[chunk_i])
 	delLumi_i = sum(Del_chunks[chunk_i])	
 	deadtime_i = recLumi_i/delLumi_i
@@ -102,12 +123,18 @@ for run_i in range(0,len(fillRunlist)):
 	print LSchunks[chunk_i]
 	print recLumi_i
 	print delLumi_i
+#	if float(LSchunks[chunk_i][-1]) > 1250.:
+#		continue
+
 	print "opening file: "+eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root"
 
 
     	HLTeff_i=ROOT.calculateDataEfficiency_v2(0,eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root",".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],30,"HLT",0,0,0,0)
 	SITeff_i=ROOT.calculateDataEfficiency_v2(0,eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root",".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],30,"SIT",1,1,1,1)
-	Staeff_i=ROOT.calculateDataEfficiency_v2(0,eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root",".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],30,"Sta",1,2,1,2)
+#	Staeff_i=ROOT.calculateDataEfficiency_v2(0,eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root",".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],30,"Sta",1,2,1,2)
+	Staeff_i=0.99
+
+
 	Zyield_i=ROOT.calculateDataEfficiency_v2(1,eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root",".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],30,"HLT",0,0,0,0)
 
 
@@ -127,6 +154,8 @@ for run_i in range(0,len(fillRunlist)):
 	Zrate.append(zRate_i)
 	Zyield.append(Zyield_i)
 	Staeff.append(Staeff_i)
+	#Staeff.append(0.99)
+
 	SITeff.append(SITeff_i)
     	HLTeff.append(HLTeff_i)
 	beginTime.append(time_chunks[chunk_i][0])
@@ -137,13 +166,20 @@ for run_i in range(0,len(fillRunlist)):
 	windowarray.append(timeWindow_i)
 		#5427, 16/10/19 07:06:35, 16/10/19 07:22:54, 6.80618, 0.0105032, 10.024, 6495.66
 	
-	print crossX
+	
+
+    with open('csvfile'+str(run)+'.csv','wb') as file:
+        for c in range(0,nMeasurements):
+                file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(Zyield[c]))
+		file.write('\n')
 
 
-with open('csvfile.csv','wb') as file:
-	for c in range(0,nMeasurements):
-		file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(Zyield[c]))
-        	file.write('\n')
+
+
+#with open('csvfile.csv','wb') as file:
+#	for c in range(0,nMeasurements):
+#		file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(Zyield[c]))
+#        	file.write('\n')
 
 print "crossX: "+str(crossX)
 print "Zyield: "+str(Zyield)
