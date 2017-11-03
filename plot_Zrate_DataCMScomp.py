@@ -96,12 +96,12 @@ for fill in fills:
 			cmsRates.append(float(rate))
 			cmsRatesE.append(float(rate)*0.05)
 			datestamp=elements[1].split(" ")
-			date=ROOT.TDatime(2017,int(datestamp[0].split("/")[1]),int(datestamp[0].split("/")[2]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
+			date=ROOT.TDatime(2017,int(datestamp[0].split("/")[0]),int(datestamp[0].split("/")[1]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
 			cmsTimes.append(date.Convert())
 			cmsTimesE.append(date.Convert()-date.Convert())
 			cmsInstLum.append(float(elements[4]))
-			cmsXsec.append(float(elements[6])/float(elements[5]))
-			cmsXsecEy.append((float(elements[6])/float(elements[5]))*0.02)
+			cmsXsec.append(float(elements[3])/float(elements[4]))
+			cmsXsecEy.append((float(elements[3])/float(elements[4]))*0.02)
 
 
 	print "here1"
@@ -138,7 +138,7 @@ for fill in fills:
 			atlasRatesE.append(float(rate)*0.05)
 			datestamp=elements[1].split(" ")
 			#print int(datestamp[1].split("/")[1]),int(datestamp[1].split("/")[2]),int(datestamp[2].split(":")[0]),int(datestamp[2].split(":")[1]),int(datestamp[2].split(":")[2])
-			date=ROOT.TDatime(2017,int(datestamp[0].split("/")[1]),int(datestamp[0].split("/")[2]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
+			date=ROOT.TDatime(2017,int(datestamp[0].split("/")[0]),int(datestamp[0].split("/")[1]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
 			atlasTimes.append(date.Convert())
 			atlasTimesE.append(date.Convert()-date.Convert())
 			atlasInstLum.append(float(elements[4]))
@@ -149,7 +149,7 @@ for fill in fills:
 				print "THIS CASE"
 				atlascmsratio.append(1.2)	
 				atlascmsratioerrorY.append(1.2)	
-			atlasXsec.append(float(elements[6])/float(elements[5]))
+			atlasXsec.append(float(elements[4])/float(elements[3]))
 			atlascmsratioerrorYE.append(0.07)
 			atlascmsratioerrorX.append(date.Convert())	
 			atlascmsratioerrorXE.append(0.0)	
@@ -403,7 +403,7 @@ for fill in fills:
 	
 	legend=ROOT.TLegend(0.75,0.75,0.9,0.9)
 	legend.AddEntry(graph_cmsXsec2,"CMS","p")
-	legend.AddEntry(graph_atlasXsec2,"CMS new","p")
+	#legend.AddEntry(graph_atlasXsec2,"CMS new","p")
 	legend.Draw()
 	text=ROOT.TText(0.1,0.93,"Work In Progress")
 	text.SetNDC()
@@ -460,7 +460,7 @@ graph_metaatlasXsec.GetYaxis().SetTitleOffset(0.87)
 
 
 multMetaGraphXsec.Add(graph_metacmsXsec)
-multMetaGraphXsec.Add(graph_metaatlasXsec)
+#multMetaGraphXsec.Add(graph_metaatlasXsec)
 
 
 c3=ROOT.TCanvas("c3","c3",1000,600)
@@ -476,7 +476,7 @@ if suffix=="Inclusive":
 
 legend=ROOT.TLegend(0.75,0.75,0.9,0.9)
 legend.AddEntry(graph_metacmsXsec,"CMS","p")
-legend.AddEntry(graph_metaatlasXsec,"CMS new","p")
+#legend.AddEntry(graph_metaatlasXsec,"CMS new","p")
 legend.Draw()
 
 text=ROOT.TText(0.1,0.93,"Work In Progress")

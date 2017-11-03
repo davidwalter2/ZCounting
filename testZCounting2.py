@@ -11,14 +11,11 @@ import math
 import pandas
 import os.path
 
-inFile="/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_trig.csv"
+inFile="../2017LumiByLS_trig.csv"
 chunkSize=50
 eosDir="/eos/cms/store/group/comm_luminosity/ZCounting/DQMFiles2017/cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2017/SingleMuon/"
 
-HLTeff=array('d')
-SITeff=array('d')
-Staeff=array('d')
-crossX=array('d')
+
 
 
 Zyield=array('d')
@@ -66,10 +63,12 @@ for run_i in range(0,len(fillRunlist)):
     print run
     print fill
 
-
-    ## CHANGE THIS
-    if run<303824: #or run>303062:
+    if run>303824: #or run>303062:
 	continue
+
+    if run<302163:
+	continue
+
     if run<302030:
 	era="C"
     if run>=302030 and run<303434:
@@ -94,6 +93,12 @@ for run_i in range(0,len(fillRunlist)):
     fillarray=array('d')
     windowarray=array('d')
     nMeasurements=0
+
+    HLTeff=array('d')
+    SITeff=array('d')
+    Staeff=array('d')
+    crossX=array('d')
+    totEff=array('d')
 
     if not os.path.isfile(eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root"):
 	print "hello"
@@ -123,8 +128,6 @@ for run_i in range(0,len(fillRunlist)):
 	print LSchunks[chunk_i]
 	print recLumi_i
 	print delLumi_i
-#	if float(LSchunks[chunk_i][-1]) > 1250.:
-#		continue
 
 	print "opening file: "+eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root"
 
@@ -140,7 +143,7 @@ for run_i in range(0,len(fillRunlist)):
 
 	crossX.append(Zyield_i/(Staeff_i**2 * SITeff_i**2 * (1-(1-HLTeff_i)*(1-HLTeff_i))*recLumi_i))
 	effTot_i=(Staeff_i**2 * SITeff_i**2 * (1-(1-HLTeff_i)*(1-HLTeff_i)))
-	timeWindow_i=(date_up.Convert()-date_low.Convert())+23 #in seconds
+	timeWindow_i=(date_up.Convert()-date_low.Convert())+23.3 #in seconds
 	zRate_i = Zyield_i/(effTot_i*deadtime_i*timeWindow_i)
 	
 	print Zyield
@@ -152,12 +155,13 @@ for run_i in range(0,len(fillRunlist)):
 
 	lumiDel.append(delLumi_i)
 	Zrate.append(zRate_i)
-	Zyield.append(Zyield_i)
+	Zyield.append(Zyield_i/(effTot_i*deadtime_i))
 	Staeff.append(Staeff_i)
 	#Staeff.append(0.99)
-
+	totEff.append(effTot_i)
 	SITeff.append(SITeff_i)
     	HLTeff.append(HLTeff_i)
+	
 	beginTime.append(time_chunks[chunk_i][0])
 	endTime.append(time_chunks[chunk_i][-1])
 	fillarray.append(fill)
@@ -172,6 +176,10 @@ for run_i in range(0,len(fillRunlist)):
         for c in range(0,nMeasurements):
                 file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(Zyield[c]))
 		file.write('\n')
+    with open('effcsvfile'+str(run)+'.csv','wb') as file:
+        for c in range(0,nMeasurements):
+                file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(Zyield[c])+","+str(SITeff[c])+","+str(HLTeff[c])+","+str(Staeff[c])+","+str(totEff[c]))
+		file.write('\n')
 
 
 
@@ -181,15 +189,15 @@ for run_i in range(0,len(fillRunlist)):
 #		file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(Zyield[c]))
 #        	file.write('\n')
 
-print "crossX: "+str(crossX)
-print "Zyield: "+str(Zyield)
-print "Zrate: "+str(Zrate)
-print "lumiDel: "+str(lumiDel)
-print "instDel: "+str(instDel)
-print "fill: "+str(fillarray)
-print "beginTime: "+str(beginTime)
-print "endTime: "+str(endTime)
-print "HLTeff: "+str(HLTeff)
-print "SITeff: "+str(SITeff)
-print "Staeff: "+str(Staeff)
-print "timeWindow: "+str(windowarray)
+#print "crossX: "+str(crossX)
+#print "Zyield: "+str(Zyield)
+#print "Zrate: "+str(Zrate)
+#print "lumiDel: "+str(lumiDel)
+#print "instDel: "+str(instDel)
+#print "fill: "+str(fillarray)
+#print "beginTime: "+str(beginTime)
+#print "endTime: "+str(endTime)
+#print "HLTeff: "+str(HLTeff)
+#print "SITeff: "+str(SITeff)
+#print "Staeff: "+str(Staeff)
+#print "timeWindow: "+str(windowarray)
