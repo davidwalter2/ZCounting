@@ -33,17 +33,22 @@ def plotPerFillEff(nMeas,nFill,effArray,times,suffixN, isInterFill):
 	c1=ROOT.TCanvas("c1"+suffixN,"c1"+suffixN,1000,600)
 	if isInterFill:
  		graph_cms.GetXaxis().SetTimeDisplay(1)
+	if not isInterFill:
+		print "here"
+		graph_cms.GetXaxis().SetTitle("Fill")
+	else:
+		graph_cms.GetXaxis().SetTitle("Time")
 	graph_cms.SetTitle(suffixN+", Fill "+nFill)
 	graph_cms.GetYaxis().SetTitle("Efficiency")
 	graph_cms.GetYaxis().SetTitleSize(0.07)
 	graph_cms.GetYaxis().SetTitleOffset(0.7)
-	graph_cms.GetXaxis().SetTitle("Time")
+	#graph_cms.GetXaxis().SetTitle("Time")
 	graph_cms.GetXaxis().SetTitleSize(0.06)
 	graph_cms.GetXaxis().SetTitleOffset(0.72)
 	graph_cms.GetXaxis().SetLabelSize(0.05)
 	graph_cms.GetYaxis().SetLabelSize(0.05)
 	graph_cms.GetXaxis().SetRangeUser(times[0],times[-1])
-	#graph_cms.GetYaxis().SetRangeUser(0.75,1.0)
+	graph_cms.GetYaxis().SetRangeUser(0.75,1.0)
 	graph_cms.Draw("AP")
 	legend=ROOT.TLegend(0.72,0.72,0.9,0.9)
 	legend.AddEntry(graph_cms,suffixN,"p")
@@ -80,13 +85,13 @@ def compareEff(nMeas, nFill, effArray1, effArray2, times, suffixN, suffixN1, suf
 	multMetaGraph.Add(graph_cms2)
 
 	c1=ROOT.TCanvas("c1"+suffixN,"c1"+suffixN,1000,600)
-	if isInterFill:
- 		graph_cms1.GetXaxis().SetTimeDisplay(1)
+	#if isInterFill:
+	graph_cms1.GetXaxis().SetTimeDisplay(1)
+	graph_cms1.GetXaxis().SetTitle("Time")
 	graph_cms1.SetTitle(suffixN+", Fill "+nFill)
 	graph_cms1.GetYaxis().SetTitle("Efficiency")
 	graph_cms1.GetYaxis().SetTitleSize(0.07)
 	graph_cms1.GetYaxis().SetTitleOffset(0.7)
-	graph_cms1.GetXaxis().SetTitle("Time")
 	graph_cms1.GetXaxis().SetTitleSize(0.06)
 	graph_cms1.GetXaxis().SetTitleOffset(0.72)
 	graph_cms1.GetXaxis().SetLabelSize(0.05)
