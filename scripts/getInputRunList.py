@@ -5,14 +5,14 @@ import os,sys
 runlist=[]
 previousRun=299918
 
-with open("/eos/cms/store/user/jsalfeld/2017LumiByLS_trig.csv", "rb") as input_file:
+with open("../2017LumiByLS_hfet_trig_PU.csv", "rb") as input_file:
     reader = csv.reader(input_file, delimiter=",")
     for row in reader:
         if row[0] == '#Data tag : v1 ':
             continue
         if row[0] == '#run:fill':
             continue 
-	if len(row) != 7:
+	if len(row) != 8:
             continue;
         currentRun = int(row[0].split(':')[0])
         if currentRun > previousRun:

@@ -29,9 +29,7 @@ else:
     log.basicConfig(format="%(levelname)s: %(message)s", level=log.INFO)
 
 #ByLS csv inputs
-#inFile="/eos/cms/store/user/jsalfeld/2017LumiByLS_notrig_PU.csv"
-inFile="/afs/cern.ch/user/j/jsalfeld/public/2017LumiByLS_hfet_notrig.csv"
-#inFile="/eos/cms/store/user/jsalfeld/2017LumiByLS_trig.csv"
+inFile="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/2017LumiByLS_hfet_trig_PU.csv"
 
 #Data inputs
 eosDir="/eos/cms/store/group/comm_luminosity/ZCounting/DQMFiles2017/cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2017/SingleMuon/"
@@ -95,14 +93,19 @@ for run_i in range(0,len(fillRunlist)):
     if run<299918:#Z Coungig module is enabled since this run 
 	continue
 
-    if run<302030:
+    #era split follows here:https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmV2017Analysis#DATA
+    if run<=302029:
 	era="C"
-    elif run>=302030 and run<303434:
+    elif run>=302030 and run<=303434:
 	era="D"
-    elif run>=303434 and run<304910:
+    elif run>=303435 and run<=304826:
 	era="E"
-    elif run>=304910:
+    elif run>=304911 and run<=306462:
         era="F"
+    elif run>=306464 and run<=306826:
+        era="G"
+    elif run>=306828:
+        era="H"
     else:
         log.error("===RunNum %s cannot be associated with an era",run)
         continue
@@ -320,10 +323,10 @@ for run_i in range(0,len(fillRunlist)):
         Zrate.append(ZRate)
         instDel.append(delLumi_i/timeWindow_i)
         lumiDel.append(delLumi_i)
-        ZyieldDel.append(Zyield_i/(ZMCEff*deadtime_i))
+        ZyieldDel.append(Zyield_i*(1-0.01)/(ZMCEff*deadtime_i))
 
 	#Additional variables to write in efficiency csv file
-        ZyieldRec.append(Zyield_i)
+        ZyieldRec.append(Zyield_i*(1-0.01)
         lumiRec.append(recLumi_i)
         windowarray.append(timeWindow_i)
         deadTime.append(deadtime_i)

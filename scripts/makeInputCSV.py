@@ -6,9 +6,12 @@
 import csv
 import os,sys
 
-f1 = file('/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_trig.csv', 'r')
-f2 = file('/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_notrig_PU.csv', 'r')
-f3 = file('/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_trig_PU.csv', 'w')
+#f1 = file('/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_trig.csv', 'r')
+#f2 = file('/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_notrig_PU.csv', 'r')
+#f3 = file('/eos/cms/store/group/comm_luminosity/ZCounting/2017LumiByLS_trig_PU.csv', 'w')
+f1 = file('/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/2017LumiByLS_hfet_trig.csv', 'r')
+f2 = file('/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/2017LumiByLS_hfet_notrig.csv', 'r')
+f3 = file('/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/2017LumiByLS_hfet_trig_PU.csv', 'w')
 
 c1 = csv.reader(f1, delimiter=",")
 c2 = csv.reader(f2, delimiter=",")
@@ -18,8 +21,12 @@ notriggerlist = list(c2)
 
 for trigger_row in c1:
     if trigger_row[0] == '#Data tag : v1 ':
+        c3.writerow(trigger_row)
         continue;
     if trigger_row[0] == '#run:fill':
+        results_row = trigger_row
+        results_row.append(",avgpu")
+        c3.writerow(trigger_row)
         continue; 
     found = False
     for notrigger_row in notriggerlist:
