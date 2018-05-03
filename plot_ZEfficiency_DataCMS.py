@@ -11,20 +11,25 @@ import random
 import argparse
 import scipy.integrate as integrate
 ROOT.gROOT.SetBatch(True)
-
+from datetime import datetime
+import pandas
+import shutil
 ROOT.gStyle.SetCanvasPreferGL(1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--cms", default="nothing", type=string, help="give the CMS csv as input")
 parser.add_argument("-f", "--fill", default='6252', type=str, help="give fill numbers")
+parser.add_argument("-s", "--saveDir", default='./', type=str, help="give fill numbers")
 args = parser.parse_args()
 if args.cms=="nothing":
 	print "please provide cms input files"
 	sys.exit()
 print args.cms
 
-def plotPerFillEff(nMeas,nFill,effArray,times,suffixN, isInterFill):
+def plotPerFillEff(nMeas,nFill,effArray,times,suffixN, isInterFill,dirStore):
+	#print "start graph init"+str(nMeas)+"  "+str(times)+"  "+str(effArray)
 	graph_cms=ROOT.TGraph(nMeas,times,effArray)
+	#print "start graph init"
 	graph_cms.SetName("graph_cms"+suffixN)
 	graph_cms.SetMarkerStyle(22)
 	graph_cms.SetMarkerColor(kOrange+8)
@@ -38,7 +43,7 @@ def plotPerFillEff(nMeas,nFill,effArray,times,suffixN, isInterFill):
 		graph_cms.GetXaxis().SetTitle("Fill")
 	else:
 		graph_cms.GetXaxis().SetTitle("Time")
-	graph_cms.SetTitle(suffixN+", Fill "+nFill)
+	graph_cms.SetTitle(suffixN+", Fill "+str(nFill))
 	graph_cms.GetYaxis().SetTitle("Efficiency")
 	graph_cms.GetYaxis().SetTitleSize(0.07)
 	graph_cms.GetYaxis().SetTitleOffset(0.7)
@@ -54,18 +59,18 @@ def plotPerFillEff(nMeas,nFill,effArray,times,suffixN, isInterFill):
 	legend.AddEntry(graph_cms,suffixN,"p")
 	#legend.Draw()
 
-	text1=ROOT.TText(0.1,0.91,"Work In Progress")
+	text1=ROOT.TText(0.3,0.73,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 	text1.SetNDC()
 	text1.Draw()
 	c1.Update()
-	c1.SaveAs(nFill+suffixN+".root")
-	c1.SaveAs(nFill+suffixN+".png")
+	#c1.SaveAs(str(nFill)+suffixN+".root")
+	c1.SaveAs(dirStore+"/"+str(nFill)+suffixN+".png")
 	c1.Delete()	
 	avrgEff=sum(effArray)/nMeas
 	return avrgEff
 
 
-def compareEff(nMeas, nFill, effArray1, effArray2, times, suffixN, suffixN1, suffixN2, isInterFill):
+def compareEff(nMeas, nFill, effArray1, effArray2, times, suffixN, suffixN1, suffixN2, isInterFill,dirStore):
 
 	multMetaGraph=ROOT.TMultiGraph("multMetaGraph",suffixN)
 	multMetaGraph.SetName("multMetaGraph")
@@ -88,7 +93,8 @@ def compareEff(nMeas, nFill, effArray1, effArray2, times, suffixN, suffixN1, suf
 	#if isInterFill:
 	graph_cms1.GetXaxis().SetTimeDisplay(1)
 	graph_cms1.GetXaxis().SetTitle("Time")
-	graph_cms1.SetTitle(suffixN+", Fill "+nFill)
+	graph_cms1.SetTitle(suffixN+", Fill "+str(nFill))
+	#graph_cms1.SetTitleOffset(0.7)
 	graph_cms1.GetYaxis().SetTitle("Efficiency")
 	graph_cms1.GetYaxis().SetTitleSize(0.07)
 	graph_cms1.GetYaxis().SetTitleOffset(0.7)
@@ -102,27 +108,31 @@ def compareEff(nMeas, nFill, effArray1, effArray2, times, suffixN, suffixN1, suf
 	graph_cms2.Draw("sameP")
 	
 	#multMetaGraph.Draw("AP")
-	legend=ROOT.TLegend(0.62,0.1,0.9,0.25)
+	legend=ROOT.TLegend(0.62,0.2,0.9,0.35)
 	legend.AddEntry(graph_cms1,suffixN1,"p")
 	legend.AddEntry(graph_cms2,suffixN2,"p")
 	legend.Draw()
 
-	text1=ROOT.TText(0.1,0.91,"Work In Progress")
+	text1=ROOT.TText(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 	text1.SetNDC()
 	text1.Draw()
 	c1.Update()
-	c1.SaveAs(nFill+suffixN+".root")
-	c1.SaveAs(nFill+suffixN+".png")
+	#c1.SaveAs(str(nFill)+suffixN+".root")
+	c1.SaveAs(dirStore+"/"+str(nFill)+suffixN+".png")
 	c1.Delete()	
 	
 
 
+data=pandas.read_csv(str(args.cms), sep=',',low_memory=False)#, skiprows=[1,2,3,4,5])
+print data.axes
+fills=data.drop_duplicates('fill')['fill'].tolist()
+
 
 cmsfile=open(str(args.cms))
-fills=args.fill.split(",")
+fillsx=args.fill.split(",")
 suffix=""
 
-print "Fills being processed: "+str(fills)
+print "Fills being processed: "+str(fillsx)
 if "Central" in str(args.cms):
 	suffix="Barrel"
 else:
@@ -147,7 +157,8 @@ avrgZBEEff=array('d')
 avrgZEEEff=array('d')
 
 for fill in fills:
-	
+	shutil.rmtree(args.saveDir+"PlotsFill_"+str(fill), ignore_errors=True)
+	os.makedirs(args.saveDir+"PlotsFill_"+str(fill))
 	cmsTimes=array('d')
 	cmsTimesE=array('d')
 	
@@ -168,12 +179,14 @@ for fill in fills:
 
 	for linecms in range(0,len(linescms)):
 		elements=linescms[linecms].split(",")
-		
-		if elements[0]==fill:
-			k=k+1
-			rate=elements[3]
-			#print elements[11]
+		#print elements[0]+"  "+str(fill)
+		if elements[0]==str(fill):
 			
+			rate=elements[3]
+			if rate=="nan":
+				continue
+			#print elements[11]
+			k=k+1
 			HLTBeff.append(float(elements[11]))
 			HLTEeff.append(float(elements[12]))
 			SITBeff.append(float(elements[13]))
@@ -190,36 +203,36 @@ for fill in fills:
 			
 
 			datestamp=elements[1].split(" ")
-			date=ROOT.TDatime(2017,int(datestamp[0].split("/")[0]),int(datestamp[0].split("/")[1]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
+			date=ROOT.TDatime(2018,int(datestamp[0].split("/")[0]),int(datestamp[0].split("/")[1]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
 			cmsTimes.append(date.Convert())
 				
 
 
 #	plotPerFillEff(nMeas,nFill,effArray,times,suffixN)
-	avrgHLTBEff.append(plotPerFillEff(k,fill,HLTBeff,cmsTimes,"_HLT_Barrel_Efficiency",True))
-	avrgHLTEEff.append(plotPerFillEff(k,fill,HLTEeff,cmsTimes,"_HLT_Endcap_Efficiency",True))
-	avrgSITBEff.append(plotPerFillEff(k,fill,SITBeff,cmsTimes,"_SelAndTracking_Barrel_Efficiency",True))
-	avrgSITEEff.append(plotPerFillEff(k,fill,SITEeff,cmsTimes,"_SelAndTracking_Endcap_Efficiency",True))
-	avrgStaBEff.append(plotPerFillEff(k,fill,StaBeff,cmsTimes,"_Standalone_Barrel_Efficiency",True))
-	avrgStaEEff.append(plotPerFillEff(k,fill,StaEeff,cmsTimes,"_Standalone_Endcap_Efficiency",True))
-	avrgZBBEff.append(plotPerFillEff(k,fill,ZBBeff,cmsTimes,"_Z_BarrelBarrel_Efficiency",True))
-	avrgZEEEff.append(plotPerFillEff(k,fill,ZEEeff,cmsTimes,"_Z_EndcapEndcap_Efficiency",True))
-	avrgZBEEff.append(plotPerFillEff(k,fill,ZBEeff,cmsTimes,"_Z_BarrelEndcap_Efficiency",True))
+	avrgHLTBEff.append(plotPerFillEff(k,fill,HLTBeff,cmsTimes,"_IsoMu27_Barrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgHLTEEff.append(plotPerFillEff(k,fill,HLTEeff,cmsTimes,"_IsoMu27_Endcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgSITBEff.append(plotPerFillEff(k,fill,SITBeff,cmsTimes,"_SelAndTrack_Barrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgSITEEff.append(plotPerFillEff(k,fill,SITEeff,cmsTimes,"_SelAndTrack_Endcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgStaBEff.append(plotPerFillEff(k,fill,StaBeff,cmsTimes,"_Standalone_Barrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgStaEEff.append(plotPerFillEff(k,fill,StaEeff,cmsTimes,"_Standalone_Endcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgZBBEff.append(plotPerFillEff(k,fill,ZBBeff,cmsTimes,"_Z_BarrelBarrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgZEEEff.append(plotPerFillEff(k,fill,ZEEeff,cmsTimes,"_Z_EndcapEndcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgZBEEff.append(plotPerFillEff(k,fill,ZBEeff,cmsTimes,"_Z_BarrelEndcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
 	
 	#compareEff(nMeas, nFill, effArray1, effArray2, times, suffixN, isInterFill)
-	compareEff(k, fill, ZBBeff, ZBBFacteff, cmsTimes, "_Z_BB_eff_comparison", "scale factor corrected MC eff.", "product of per-muon eff.",True)
-	compareEff(k, fill, ZBEeff, ZBEFacteff, cmsTimes, "_Z_BE_eff_comparison", "scale factor corrected MC eff.", "product of per-muon eff.",True)
-	compareEff(k, fill, ZEEeff, ZEEFacteff, cmsTimes, "_Z_EE_eff_comparison", "scale factor corrected MC eff.", "product of per-muon eff.",True)
+	compareEff(k, fill, ZBBeff, ZBBFacteff, cmsTimes, "_Z_BB_eff_comparison", "PU corrected Z->2#mu eff.", "product of per-muon eff.",True,args.saveDir+"PlotsFill_"+str(fill))
+	compareEff(k, fill, ZBEeff, ZBEFacteff, cmsTimes, "_Z_BE_eff_comparison", "PU corrected Z->2#mu eff.", "product of per-muon eff.",True,args.saveDir+"PlotsFill_"+str(fill))
+	compareEff(k, fill, ZEEeff, ZEEFacteff, cmsTimes, "_Z_EE_eff_comparison", "PU corrected Z->2#mu eff.", "product of per-muon eff.",True,args.saveDir+"PlotsFill_"+str(fill))
 
 	metaFills.append(float(fill))
 
-plotPerFillEff(len(avrgHLTBEff),"all",avrgHLTBEff,metaFills,"SummaryHLT_Barrel_Efficiency",False)
-plotPerFillEff(len(avrgHLTEEff),"all",avrgHLTEEff,metaFills,"SummaryHLT_Endcap_Efficiency",False)
-plotPerFillEff(len(avrgSITBEff),"all",avrgSITBEff,metaFills,"SummarySelAndTracking_Barrel_Efficiency",False)
-plotPerFillEff(len(avrgSITEEff),"all",avrgSITEEff,metaFills,"SummarySelAndTracking_Endcap_Efficiency",False)
-plotPerFillEff(len(avrgStaBEff),"all",avrgStaBEff,metaFills,"SummaryStandalone_Barrel_Efficiency",False)
-plotPerFillEff(len(avrgStaEEff),"all",avrgStaEEff,metaFills,"SummaryStandalone_Endcap_Efficiency",False)
-plotPerFillEff(len(avrgZBBEff),"all",avrgZBBEff,metaFills,"Summary_Z_BarrelBarrel_Efficiency",False)
-plotPerFillEff(len(avrgZBEEff),"all",avrgZBEEff,metaFills,"Summary_Z_BarrelEndcap_Efficiency",False)
-plotPerFillEff(len(avrgZEEEff),"all",avrgZEEEff,metaFills,"Summary_Z_EndcapEndcap_Efficiency",False)
+plotPerFillEff(len(avrgHLTBEff),"all",avrgHLTBEff,metaFills,"SummaryIsoMu27_Barrel_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgHLTEEff),"all",avrgHLTEEff,metaFills,"SummaryIsoMu27_Endcap_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgSITBEff),"all",avrgSITBEff,metaFills,"SummarySelAndTrack_Barrel_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgSITEEff),"all",avrgSITEEff,metaFills,"SummarySelAndTrack_Endcap_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgStaBEff),"all",avrgStaBEff,metaFills,"SummaryStandalone_Barrel_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgStaEEff),"all",avrgStaEEff,metaFills,"SummaryStandalone_Endcap_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgZBBEff),"all",avrgZBBEff,metaFills,"Summary_Z_BB_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgZBEEff),"all",avrgZBEEff,metaFills,"Summary_Z_BE_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgZEEEff),"all",avrgZEEEff,metaFills,"Summary_Z_EE_Efficiency",False,args.saveDir)
 	

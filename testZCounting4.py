@@ -23,6 +23,7 @@ parser.add_argument("-p","--parametrizeType",help="define parametrization: 1 is 
 parser.add_argument("-s","--sizeChunk",help="define granularity: numbers of LS to be merged for one measurement [%default]",default=50)
 parser.add_argument("-u","--microBarn",help="luminosity in input csv file is in microbarn",default=False)
 parser.add_argument("-v","--verbose",help="increase logging level from INFO to DEBUG",default=False,action="store_true")
+parser.add_argument("-c","--writeSummaryCSV",help="produce merged CSV with all runs",default=True)
 
 args = parser.parse_args()
 if args.verbose:
@@ -32,7 +33,9 @@ else:
 
 #ByLS csv inputs
 #inFile="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/2017LumiByLS_hfet_trig_PU.csv"
-inFile=glob.glob('/eos/cms/store/group/comm_luminosity/ZCounting/brilcalcFile2018/*csv')[0]
+inFileList=glob.glob('/eos/cms/store/group/comm_luminosity/ZCounting/brilcalcFile2018/*csv')
+inFileList.sort(key=os.path.getmtime)
+inFile=inFileList[-1]
 print "The brilcalc csv file: "+str(inFile)
 
 #Data inputs
@@ -57,7 +60,7 @@ if args.microBarn:
     lumiChunk = lumiChunk*1000000.
 
 log.info("Loading C marco...")
-ROOT.gROOT.Macro( os.path.expanduser( '/afs/cern.ch/work/j/jsalfeld/Princeton/forZCounting2018/CMSSW_9_4_4/src/ZCounting/.rootlogon.C' ) )
+ROOT.gROOT.Macro( os.path.expanduser( '/afs/cern.ch/work/j/jsalfeld/Princeton/forZCounting2018/.rootlogon.C' ) )
 ROOT.gROOT.LoadMacro("/afs/cern.ch/work/j/jsalfeld/Princeton/forZCounting2018/CMSSW_9_4_4/src/ZCounting/calculateDataEfficiency_v3.C")
 ROOT.gROOT.SetBatch(True)
 
@@ -263,13 +266,13 @@ for run_i in range(0,len(fillRunlist)):
         log.debug("======timeWindow: %f",timeWindow_i)
 
         log.debug("Openning DQMIO.root file: %s", eosFile)
-        HLTeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/eos/cms/store/group/comm_luminosity/ZCounting/plots2018/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0,recLumi_i)
-        HLTeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/eos/cms/store/group/comm_luminosity/ZCounting/plots2018/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",1,0,0,0,0,recLumi_i)
-        SITeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/eos/cms/store/group/comm_luminosity/ZCounting/plots2018/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",0,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        SITeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/eos/cms/store/group/comm_luminosity/ZCounting/plots2018/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",1,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/eos/cms/store/group/comm_luminosity/ZCounting/plots2018/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",0,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/eos/cms/store/group/comm_luminosity/ZCounting/plots2018/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",1,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        Zyieldres_i=ROOT.calculateDataEfficiency_v3(1,str(eosFile),"/eos/cms/store/group/comm_luminosity/ZCounting/plots2018/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0)
+        HLTeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0,recLumi_i)
+        HLTeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",1,0,0,0,0,recLumi_i)
+        SITeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",0,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        SITeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",1,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",0,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),"/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",1,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        Zyieldres_i=ROOT.calculateDataEfficiency_v3(1,str(eosFile),"/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0)
 
         HLTeffB_i = HLTeffresB_i[0]
         HLTeffE_i = HLTeffresE_i[0]
@@ -310,9 +313,12 @@ for run_i in range(0,len(fillRunlist)):
 	ZEEEffCorr = 0
 
 	if paraType == 1:
-	    ZBBEffCorr = 0.0123732 + 0.000161345 * avgPileup_i
-            ZBEEffCorr = 0.00875762 + 0.000493846 * avgPileup_i
-            ZEEEffCorr = 0.0160629 + 0.000296308 * avgPileup_i
+	    ZBBEffCorr = 0.00305155 + 0.000519427 * avgPileup_i
+	    ZBEEffCorr = 0.00585766 + 0.000532229 * avgPileup_i
+	    ZEEEffCorr = 0.0114659  + 0.00048351  * avgPileup_i
+            #ZBBEffCorr = 0.0123732 + 0.000161345 * avgPileup_i
+            #ZBEEffCorr = 0.00875762 + 0.000493846 * avgPileup_i
+            #ZEEEffCorr = 0.0160629 + 0.000296308 * avgPileup_i
 
 	if paraType == 2:
     	    if avgPileup_i < 50:
@@ -378,6 +384,7 @@ for run_i in range(0,len(fillRunlist)):
         ZBEeff.append(ZBEEff)
         ZEEeff.append(ZEEEff)
 
+    ## Write Per Run CSV Files 
 
     with open('/eos/cms/store/group/comm_luminosity/ZCounting/csvFiles2018/csvfile'+str(run)+'.csv','wb') as file:
         for c in range(0,nMeasurements):
@@ -388,3 +395,32 @@ for run_i in range(0,len(fillRunlist)):
         for c in range(0,nMeasurements):
                 file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c])+","+str(beginLS[c])+","+str(endLS[c])+","+str(lumiRec[c])+","+str(windowarray[c])+","+str(HLTeffB[c])+","+str(HLTeffE[c])+","+str(SITeffB[c])+","+str(SITeffE[c])+","+str(StaeffB[c])+","+str(StaeffE[c])+","+str(ZMCeff[c])+","+str(ZMCeffBB[c])+","+str(ZMCeffBE[c])+","+str(ZMCeffEE[c])+","+str(ZBBeff[c])+","+str(ZBEeff[c])+","+str(ZEEeff[c])+","+str(pileUp[c]))
                 file.write('\n')
+
+
+## Write Big CSV File
+if args.writeSummaryCSV:
+	rateFileList=sorted(glob.glob('/eos/cms/store/group/comm_luminosity/ZCounting/csvFiles2018/csvfile*.csv'))	
+	with open('/eos/cms/store/group/comm_luminosity/ZCounting/csvFiles2018/Mergedcsvfile.csv','wb') as file:
+		file.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount")
+		file.write('\n')
+		for m in range(0,len(rateFileList)):
+			iterF=open(rateFileList[m])
+			lines=iterF.readlines()
+			for line in lines:
+				element=line.split(',')
+				if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0":
+					continue
+				file.write(line)
+
+        effFileList=sorted(glob.glob('/eos/cms/store/group/comm_luminosity/ZCounting/csvFiles2018/effcsvfile*.csv'))	
+        with open('/eos/cms/store/group/comm_luminosity/ZCounting/csvFiles2018/Mergedeffcsvfile.csv','wb') as fileTwo:
+		fileTwo.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount,beginLS,endLS,lumiRec,windowarray,HLTeffB,HLTeffE,SITeffB,SITeffE,,StaeffB,StaeffE,ZMCeff,ZMCeffBB,ZMCeffBE,ZMCeffEE,ZBBeff,ZBEeff,ZEEeff,pileUp")
+		fileTwo.write('\n')
+		for m in range(0,len(effFileList)):
+			iterF=open(effFileList[m])
+			lines=iterF.readlines()
+			for line in lines:
+				element=line.split(',')
+				if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0":
+					continue
+				fileTwo.write(line)
