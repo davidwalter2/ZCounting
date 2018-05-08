@@ -524,7 +524,7 @@ std::vector<double> preFit(TH1D* failHist){
 //  std::vector<float> v = {1.,0.,1.,0.,1.,0.};return v;
   TH1D *h = new TH1D("h", "", massBin, massLo, massHi);
   TF1 *fq = new TF1("fq", "[0]+[1]*x+[2]*x*x", massLo, massHi);
-
+  TF1 *fl = new TF1("fl", "[0]+[1]*x", massLo, massHi);
 
   for(int i = 0; i < 15; i++){
     h->SetBinContent(i+1, failHist->GetBinContent(i+1));
@@ -537,7 +537,17 @@ std::vector<double> preFit(TH1D* failHist){
 
   h->Fit("fq");
   std::cout<<fq->GetParameter(0)<<","<<fq->GetParError(0)<<" ,"<<fq->GetParameter(1)<<","<<fq->GetParError(1)<<","<<fq->GetParameter(2)<<","<<fq->GetParError(2)<<std::endl;
-  std::vector<double> v = {fq->GetParameter(0), fq->GetParError(0), fq->GetParameter(1), fq->GetParError(1), fq->GetParameter(2), fq->GetParError(2)};
+  std::vector<double> v;
+
+  if(fq->GetParameter(2) > 0.){
+    h->Fit("fl");
+    std::cout<<"SWITCH TO LINEAR!"<<std::endl;
+    std::cout<<fl->GetParameter(0)<<","<<fl->GetParError(0)<<" ,"<<fl->GetParameter(1)<<","<<fl->GetParError(1)<<std::endl;
+    v = {fl->GetParameter(0), fl->GetParError(0), fl->GetParameter(1), fl->GetParError(1), 0.,0.};
+  }else{
+    v = {fq->GetParameter(0), fq->GetParError(0), fq->GetParameter(1), fq->GetParError(1), fq->GetParameter(2), fq->GetParError(2)};
+  }
+
   return v;
 }
 

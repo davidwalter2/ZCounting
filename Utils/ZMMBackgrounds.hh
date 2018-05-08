@@ -75,9 +75,11 @@ CQuadratic::CQuadratic(RooRealVar &m, const Bool_t pass, const int ibin, const f
   char a2name[50]; 
   sprintf(a2name,"a2%s",name);
   if((p0!=0.)||(p1!=0.)||(p2!=0.)){
-      a2 = new RooRealVar(a2name,a2name,p2,p2-e2,p2+e2);
+      float upper = p2+e2 > 0. ? 0. : p2+e2;
+      a2 = new RooRealVar(a2name,a2name,p2,p2-e2,upper);
+      std::cout<<p2<<", "<<p2-e2<<", "<<upper<<std::endl;
   }else{
-    a2 = new RooRealVar(a2name,a2name,0.,-10.,10.);
+    a2 = new RooRealVar(a2name,a2name,0.,0.,10.);
   }
   
   char formula[200];

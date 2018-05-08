@@ -106,7 +106,7 @@ CMCTemplateConvGaussian::CMCTemplateConvGaussian(RooRealVar &m, TH1D* hist, cons
 
   char vname[50];  
   
-  sprintf(vname,"mean%s",name);  mean  = new RooRealVar(vname,vname,0,-10,10);
+  sprintf(vname,"mean%s",name);  mean  = new RooRealVar(vname,vname,0,-2.5,2.5);
   sprintf(vname,"sigma%s",name); sigma = new RooRealVar(vname,vname,2,0,5);
   sprintf(vname,"gaus%s",name);  gaus  = new RooGaussian(vname,vname,m,*mean,*sigma);
 
