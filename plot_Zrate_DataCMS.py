@@ -13,13 +13,14 @@ import scipy.integrate as integrate
 from datetime import datetime
 import pandas
 import shutil
+import math
 ROOT.gROOT.SetBatch(True)
 
 ROOT.gStyle.SetCanvasPreferGL(1)
 
 parser = argparse.ArgumentParser()
 
-
+ZeffUnc=0.03
 
 parser.add_argument("-c", "--cms", default="nothing", type=string, help="give the CMS csv as input")
 parser.add_argument("-f", "--fill", default='6252', type=str, help="give fill numbers")
@@ -114,11 +115,11 @@ for fill in fills:
 		if elements[0]==str(fill):
 			
 			rate=elements[3]
-			if rate=="nan":
+			if rate=="nan" or float(elements[6])<1000.:
 				continue
 			k=k+1
 			cmsRates.append(float(rate))
-			cmsRatesE.append(float(rate)*0.05)
+			cmsRatesE.append(float(rate)*math.sqrt( ( math.sqrt(float(elements[6]))/float(elements[6]) )**2 + ZeffUnc**2 ))
 			datestamp=elements[1].split(" ")
 			date=ROOT.TDatime(2018,int(datestamp[0].split("/")[0]),int(datestamp[0].split("/")[1]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
 			#print datestamp
@@ -131,6 +132,8 @@ for fill in fills:
 
 
 	#print "here1"
+	if len(cmsTimes)==0:
+		continue
 
 	graph_cms=ROOT.TGraphErrors(k,cmsTimes,cmsRates,cmsTimesE,cmsRatesE)
 	graph_cms.SetName("graph_cms")

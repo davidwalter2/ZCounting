@@ -69,7 +69,7 @@ ROOT.gROOT.SetBatch(True)
 log.info("Loading input byls csv...")
 lumiFile=open(str(inFile))
 lumiLines=lumiFile.readlines()
-data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-7,len(lumiLines)-6,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
+data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-8,len(lumiLines)-7,len(lumiLines)-6,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
 log.debug("%s",data.axes)
 log.info("Loading input byls csv DONE...")
 
@@ -355,6 +355,13 @@ for run_i in range(0,len(fillRunlist)):
 
 	#Variables to write in csv file
         fillarray.append(fill)
+
+	#datestamp_low=time_chunks[chunk_i][0].split(" ")
+	#date_low=ROOT.TDatime(currentYear,int(datestamp_low[0].split("/")[0]),int(datestamp_low[0].split("/")[1]),int(datestamp_low[1].split(":")[0]),int(datestamp_low[1].split(":")[1]),int(datestamp_low[1].split(":")[2]))
+        #datestamp_up=time_chunks[chunk_i][-1].split(" ")
+	#date_up=ROOT.TDatime(currentYear,int(datestamp_up[0].split("/")[0]),int(datestamp_up[0].split("/")[1]),int(datestamp_up[1].split(":")[0]),int(datestamp_up[1].split(":")[1]),int(datestamp_up[1].split(":")[2]))
+
+
         beginTime.append(time_chunks[chunk_i][0])
         endTime.append(time_chunks[chunk_i][-1])
         Zrate.append(ZRate)
