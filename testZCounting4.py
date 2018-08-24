@@ -69,7 +69,7 @@ ROOT.gROOT.SetBatch(True)
 log.info("Loading input byls csv...")
 lumiFile=open(str(inFile))
 lumiLines=lumiFile.readlines()
-data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-8,len(lumiLines)-7,len(lumiLines)-6,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
+data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-11,len(lumiLines)-10,len(lumiLines)-9,len(lumiLines)-8,len(lumiLines)-7,len(lumiLines)-6,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
 log.debug("%s",data.axes)
 log.info("Loading input byls csv DONE...")
 
@@ -413,27 +413,42 @@ for run_i in range(0,len(fillRunlist)):
 print "Writing overall CSV file"
 if args.writeSummaryCSV:
 	rateFileList=sorted(glob.glob(args.dirCSV+'csvfile*.csv'))	
-	with open(args.dirCSV+'Mergedcsvfile.csv','wb') as file:
+	with open(args.dirCSV+'Mergedcsvfile.csv','w') as file:
 		file.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount")
 		file.write('\n')
-		for m in range(0,len(rateFileList)):
-			iterF=open(rateFileList[m])
-			lines=iterF.readlines()
-			for line in lines:
-				element=line.split(',')
-				if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0":
-					continue
-				file.write(line)
+		print "There are "+str(len(rateFileList))+" runs in the directory"
+		for m in range(0,len(rateFileList)):						
+			print "producing now csv file: "+rateFileList[m]
+			try:
+				iterF=open(rateFileList[m])
+				lines=iterF.readlines()
+				for line in lines:
+					element=line.split(',')
+					if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0" or element[3]=="inf":
+						continue
+					file.write(line)
+			except IOError as err:
+    				print err.errno 
+                                print err.strerror
+				continue
 
-        effFileList=sorted(glob.glob(args.dirCSV+'effcsvfile*.csv'))	
+        effFileList=sorted(glob.glob(args.dirCSV+'effcsvfile*.csv'))
+	print "Starting to write efficiency files."	
         with open(args.dirCSV+'Mergedeffcsvfile.csv','wb') as fileTwo:
 		fileTwo.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount,beginLS,endLS,lumiRec,windowarray,HLTeffB,HLTeffE,SITeffB,SITeffE,,StaeffB,StaeffE,ZMCeff,ZMCeffBB,ZMCeffBE,ZMCeffEE,ZBBeff,ZBEeff,ZEEeff,pileUp")
 		fileTwo.write('\n')
 		for m in range(0,len(effFileList)):
-			iterF=open(effFileList[m])
-			lines=iterF.readlines()
-			for line in lines:
-				element=line.split(',')
-				if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0":
-					continue
-				fileTwo.write(line)
+
+			print "producing now eff csv file: "+rateFileList[m]
+			try:
+				iterF=open(effFileList[m])
+				lines=iterF.readlines()
+				for line in lines:
+					element=line.split(',')
+					if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0" or element[3]=="inf":
+						continue
+					fileTwo.write(line)
+                        except IOError as err:
+				print err.errno 
+                                print err.strerror
+                                continue
