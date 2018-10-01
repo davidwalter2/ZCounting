@@ -38,6 +38,7 @@ data=pandas.read_csv(str(args.cms), sep=',',low_memory=False)#, skiprows=[1,2,3,
 print data.axes
 fills=data.drop_duplicates('fill')['fill'].tolist()
 zcountlist=data.groupby('fill')['delZCount'].apply(list)
+delLumilist=data.groupby('fill')['delLumi'].apply(list)
 timelist=data.groupby('fill')['endTime'].apply(list)
 
 fil=array('d')
@@ -72,14 +73,22 @@ metaZLumiRatioEy=array('d')
 
 zcountsAccu=0
 metazcountsAccu=array('d')
+metazcountsoverlumi=array('d')
+
+
+#print timelist
 
 for fill in fills:
-	print zcountlist[fill]
+	#print zcountlist[fill]
 	zcountl.append(sum(zcountlist[fill]))
 	zcountsAccu=zcountsAccu+sum(zcountlist[fill])
 	metazcountsAccu.append(zcountsAccu)
 	dateZ=timelist[fill][-1].split(" ")
+	#print dateZ
 	dateZ2=ROOT.TDatime(2018,int(dateZ[0].split("/")[0]),int(dateZ[0].split("/")[1]),int(dateZ[1].split(":")[0]),int(dateZ[1].split(":")[1]),int(dateZ[1].split(":")[2]))
+#	print dateZ2.GetDate()
+#	print dateZ2.GetTime()
+	
 	timel.append(dateZ2.Convert())
 	cmsRates=array('d')
 	cmsRatesE=array('d')
@@ -115,7 +124,7 @@ for fill in fills:
 		if elements[0]==str(fill):
 			
 			rate=elements[3]
-			if rate=="nan" or float(elements[6])<1000.:
+			if rate=="nan" or rate=="inf" or float(elements[6])<1000.:
 				continue
 			k=k+1
 			cmsRates.append(float(rate))
@@ -241,8 +250,7 @@ for fill in fills:
 	text2.SetTextSize(0.04)
 	text2.Draw()
 	c4.SaveAs(args.saveDir+"PlotsFill_"+str(fill)+"/ZStability"+str(fill)+suffix+".png")
-	
-	
+		
 	c4.Delete()
 	
 	
@@ -334,6 +342,8 @@ graph_zcountA.SetMarkerSize(2.5)
 graph_zcountA.SetTitle("Accumulated Z Bosons over Time")
 graph_zcountA.GetXaxis().SetTitle("Time")
 graph_zcountA.GetXaxis().SetTimeDisplay(1)
+#graph_zcountA.GetXaxis().SetTimeFormat("%Y-%m-%d %H:%M");
+graph_zcountA.GetXaxis().SetTimeOffset(0,"gmt")
 graph_zcountA.GetYaxis().SetTitle("Z Count")#/<#sigma^{fid}_{Z}>")
 graph_zcountA.GetXaxis().SetTitleSize(0.06)
 graph_zcountA.GetYaxis().SetTitleSize(0.06)
