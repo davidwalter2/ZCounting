@@ -65,7 +65,7 @@ def plotPerFillEff(nMeas,nFill,effArray,times,suffixN, isInterFill,dirStore):
 	c1.Update()
 	#c1.SaveAs(str(nFill)+suffixN+".root")
 	c1.SaveAs(dirStore+"/"+str(nFill)+suffixN+".png")
-	c1.Delete()	
+	c1.Close()	
 	avrgEff=sum(effArray)/nMeas
 	return avrgEff
 
@@ -119,7 +119,7 @@ def compareEff(nMeas, nFill, effArray1, effArray2, times, suffixN, suffixN1, suf
 	c1.Update()
 	#c1.SaveAs(str(nFill)+suffixN+".root")
 	c1.SaveAs(dirStore+"/"+str(nFill)+suffixN+".png")
-	c1.Delete()	
+	c1.Close()	
 	
 
 

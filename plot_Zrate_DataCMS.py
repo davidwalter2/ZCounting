@@ -1,4 +1,5 @@
 import os,sys
+import pdb
 #sys.argv.append( '-b-' )
 #from scipy.interpolate import UnivariateSpline
 import ROOT
@@ -12,6 +13,7 @@ import argparse
 import scipy.integrate as integrate
 from datetime import datetime
 import pandas
+import numpy as np
 import shutil
 import math
 ROOT.gROOT.SetBatch(True)
@@ -35,7 +37,9 @@ print args.cms
 #print args.atlas
 
 data=pandas.read_csv(str(args.cms), sep=',',low_memory=False)#, skiprows=[1,2,3,4,5])
-print data.axes
+#print data.axes
+#pdb.set_trace()
+#print data.keys
 fills=data.drop_duplicates('fill')['fill'].tolist()
 zcountlist=data.groupby('fill')['delZCount'].apply(list)
 delLumilist=data.groupby('fill')['delLumi'].apply(list)
@@ -46,6 +50,8 @@ zcountl=array('d')
 timel=array('d')
 fil=fills
 
+#import pdb
+#pdb.set_trace()
 
 #atlasfile=open(str(args.atlas))
 cmsfile=open(str(args.cms))
@@ -79,7 +85,7 @@ metazcountsoverlumi=array('d')
 #print timelist
 
 for fill in fills:
-	#print zcountlist[fill]
+	print("zcountlist[fill]", zcountlist[fill])
 	zcountl.append(sum(zcountlist[fill]))
 	zcountsAccu=zcountsAccu+sum(zcountlist[fill])
 	metazcountsAccu.append(zcountsAccu)
@@ -206,7 +212,7 @@ for fill in fills:
 	c1.Update()
 	#c1.SaveAs("zrates"+str(fill)+suffix+".root")
 	c1.SaveAs(args.saveDir+"PlotsFill_"+str(fill)+"/zrates"+str(fill)+suffix+".png")
-	c1.Delete()
+	c1.Close()
 	
 	metaXsecCMS.append(sum(cmsXsec)/len(cmsXsec))	
 	metaFills.append(float(fill))	
@@ -251,7 +257,7 @@ for fill in fills:
 	text2.Draw()
 	c4.SaveAs(args.saveDir+"PlotsFill_"+str(fill)+"/ZStability"+str(fill)+suffix+".png")
 		
-	c4.Delete()
+	c4.Close()
 	
 	
 ROOT.gROOT.SetBatch(True)
@@ -285,9 +291,12 @@ c3.SetGrid()
 
 graph_metacmsXsec.Draw("AP")
 
+print(suffix)
+
 if suffix=="Barrel":
 	graph_metacmsXsec.GetYaxis().SetRangeUser(0.9*600,1.1*600)
 if suffix=="Inclusive":
+	print("set y axis range...")
 	graph_metacmsXsec.GetYaxis().SetRangeUser(0.9*600,1.1*600)
 
 
@@ -299,8 +308,11 @@ text2.SetNDC()
 text2.SetTextSize(0.04)
 text2.Draw()
 c3.SaveAs(args.saveDir+"summaryZStability"+suffix+".png")
+c3.Close()
+
 graph_zcount=ROOT.TGraph(len(metaFills),metaFills,zcountl)
-#print zcountl
+print("metaFills= ",metaFills)
+print("zcount= ", zcountl)
 graph_zcount.SetName("graph_zcount")
 graph_zcount.SetMarkerStyle(22)
 graph_zcount.SetMarkerColor(kOrange+8)
@@ -316,9 +328,12 @@ graph_zcount.GetXaxis().SetLabelSize(0.05)
 graph_zcount.GetYaxis().SetLabelSize(0.05)
 graph_zcount.GetXaxis().SetLabelSize(0.05)
 graph_zcount.GetYaxis().SetLabelSize(0.05)
-c5=ROOT.TCanvas("c3","c3",1000,600)
+
+
+c5=ROOT.TCanvas("c5","c5",1000,600)
 c5.SetGrid()
 graph_zcount.Draw("AP")
+
 text=ROOT.TLatex(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 text.SetNDC()
 text.Draw()
@@ -331,10 +346,11 @@ text3.SetNDC()
 text3.SetTextSize(0.04)
 text3.Draw()
 c5.SaveAs(args.saveDir+"ZCountPerFill"+suffix+".png")
-
+c5.Close()
 
 graph_zcountA=ROOT.TGraph(len(metaFills),timel,metazcountsAccu)
-#print zcountl
+print("timel=",timel)
+print("metazcountsAccu= " ,metazcountsAccu)
 graph_zcountA.SetName("graph_zcountAccu")
 graph_zcountA.SetMarkerStyle(22)
 graph_zcountA.SetMarkerColor(kOrange+8)
@@ -353,7 +369,9 @@ graph_zcountA.GetXaxis().SetLabelSize(0.05)
 graph_zcountA.GetYaxis().SetLabelSize(0.05)
 graph_zcountA.GetXaxis().SetLabelSize(0.05)
 graph_zcountA.GetYaxis().SetLabelSize(0.05)
-c6=ROOT.TCanvas("c3","c3",1000,600)
+
+
+c6=ROOT.TCanvas("c6","c6",1000,600)
 c6.SetGrid()
 graph_zcountA.Draw("AP")
 text=ROOT.TLatex(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
@@ -368,3 +386,4 @@ text3.SetNDC()
 text3.SetTextSize(0.04)
 text3.Draw()
 c6.SaveAs(args.saveDir+"ZCountAccumulated"+suffix+".png")
+c6.Close()
