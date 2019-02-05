@@ -17,7 +17,7 @@
 
 #include "Utils/CPlot.hh"             // helper class for plots
 #include "Utils/MitStyleRemix.hh"         // style settings for drawing
-#include "Utils/CEffUser1D.hh"            // class for handling efficiency graphs
+#include "Utils/CEffUser1D.hh"            // class for handling efficiency graphss
 #include "Utils/CEffUser2D.hh"            // class for handling efficiency tables
 
 #include "Utils/ZMMSignals.hh"
@@ -40,31 +40,36 @@
 
 using namespace std;
 
-//gSystem->Load("./Utils/CPlot_cc.so")
-
 // Set up fiducial region 
 const Float_t massLo  = 66.;
 const Float_t massHi  = 116.;
 const UInt_t  massBin = 50;
 
-const Float_t ptCut    = 27.;
+const Float_t ptCut    = 30.;
 const Float_t etaCut   = 2.4;
 const Float_t etaBound = 0.9;
 
+// Set up pile-up bounds available get MC template for fitting
+const Int_t minPU = 1;
+const Int_t maxPU = 60;
+
 void generateTemplate(
-        const TString mcfilename, const TString purwDir, const Float_t meanPU);
+        const TString mcfilename, const TString purwDir, const Int_t meanPU);
 
 void performCount(
         Double_t &resEff, Double_t &resErrl, Double_t &resErrh, TH1D *passHist, TH1D *failHist,
         TCanvas *cpass, TCanvas *cfail, const TString effType, const Bool_t etaRegion, const Int_t iBin, const Float_t lumi, const TString format);
 
 void performFit(
-        Double_t &resEff, Double_t &resErrl, Double_t &resErrh, TH1D *passHist, TH1D *failHist,
+        Double_t &resEff, Double_t &resErrl, Double_t &resErrh, Double_t &resChi2Pass, Double_t &resChi2Fail, TH1D *passHist, TH1D *failHist,
         const Int_t sigpass, const Int_t bkgpass, const Int_t sigfail, const Int_t bkgfail,
         TCanvas *cpass, TCanvas *cfail, const TString effType, const Bool_t etaRegion, const Int_t iBin, const Float_t lumi, const TString format);
 
-float calculateDataEfficiency_v2(
-		const Int_t   getYield,	    // just get the yield	
+std::vector<double> preFit(TH1D *failHist);
+
+
+std::vector<float> calculateDataEfficiency(
+                const Int_t   getYield,     // just get the yield  
 		const TString inputFile,    // DQMIO file 
 		const TString outputDir,    // output directory
 		const TString runNum,       // Runnum
@@ -73,14 +78,15 @@ float calculateDataEfficiency_v2(
 		const Int_t   endLS,        // ending LS for currect measurement
 		const Float_t meanPU,       // mean #PU, only needed if use MC template as fitting model
 		const TString effType,      // "HLT" or "SIT" or "Sta"
+		const Bool_t  etaRegion,    // 0 for barrel, 1 for forward 
 		const Int_t   sigModPass,   // signal extraction method for PASS sample
 		const Int_t   bkgModPass,   // background model for PASS sample
 		const Int_t   sigModFail,   // signal extraction method for FAIL sample      
 		const Int_t   bkgModFail,   // background model for FAIL sample
-		const Float_t lumi=50.,     // luminosity for plot label: 40/50 Lumi-sections
-		const TString format="png", // plot format
-		const TString mcfilename="",// ROOT file containing MC events to generate templates from
-		const TString purwDir=""
+		const Float_t lumi=10.,     // luminosity for plot label
+                const TString mcfilename="",// ROOT file containing MC events to generate templates from
+                const TString purwDir="",
+		const TString format="png" // plot format
 ){
 
   if(getYield == 1){
@@ -88,27 +94,27 @@ float calculateDataEfficiency_v2(
 
   TH1F *h_yield = (TH1F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_yield_Z");
 
-  return h_yield->Integral(startLS,endLS);  
+  std::vector<float> yieldEff = {};
+  yieldEff.push_back(h_yield->Integral(startLS,endLS));
+
+  return yieldEff;
   }
 
   gSystem->mkdir(outputDir,kTRUE);
   CPlot::sOutDir = outputDir + TString("/Run") + runNum + TString("/plots");
 
   // Generate histogram templates from MC if necessary
-  if(sigModPass==2 || sigModFail==2) generateTemplate(mcfilename, purwDir, meanPU);
+  if(sigModPass==2 || sigModFail==2) generateTemplate(mcfilename, purwDir, Int_t(meanPU));
 
   // Load the DQMIO file and corresponding histograms 
   TFile *infile = new TFile(inputFile);
 
-  TH2F *h_mass_lumi_pass_central = (TH2F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_mass_"+effType+"_pass_central");
-  TH2F *h_mass_lumi_fail_central = (TH2F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_mass_"+effType+"_fail_central");
-  TH2F *h_mass_lumi_pass_forward = (TH2F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_mass_"+effType+"_pass_forward");
-  TH2F *h_mass_lumi_fail_forward = (TH2F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_mass_"+effType+"_fail_forward");
+  TString region = etaRegion ? "forward" : "central";
+  TH2F *h_mass_lumi_pass = (TH2F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_mass_"+effType+"_pass_"+region);
+  TH2F *h_mass_lumi_fail = (TH2F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_mass_"+effType+"_fail_"+region);
 
-  TH1D *h_mass_pass_central = h_mass_lumi_pass_central->ProjectionY("h_mass_pass_central", startLS, endLS, "e"); 
-  TH1D *h_mass_fail_central = h_mass_lumi_fail_central->ProjectionY("h_mass_fail_central", startLS, endLS, "e");
-  TH1D *h_mass_pass_forward = h_mass_lumi_pass_forward->ProjectionY("h_mass_pass_forward", startLS, endLS, "e");
-  TH1D *h_mass_fail_forward = h_mass_lumi_fail_forward->ProjectionY("h_mass_fail_forward", startLS, endLS, "e"); 
+  TH1D *h_mass_pass = h_mass_lumi_pass->ProjectionY("h_mass_pass", startLS, endLS, "e"); 
+  TH1D *h_mass_fail = h_mass_lumi_fail->ProjectionY("h_mass_fail", startLS, endLS, "e");
 
   // Calculate efficiency and save results to plots and histograms
   TCanvas *cpass = MakeCanvas("cpass","cpass",720,540);
@@ -116,65 +122,48 @@ float calculateDataEfficiency_v2(
   TCanvas *cfail = MakeCanvas("cfail","cfail",720,540);
   cfail->SetWindowPosition(cfail->GetWindowTopX()+cfail->GetBorderSize()+800,cpass->GetWindowTopX()+cfail->GetBorderSize()+540);
 
-  TH1D *hEff  = new TH1D("hEff", "", 2, 0, 2); 
-  TH1D *hErrl = new TH1D("hErrl", "", 2, 0, 2);
-  TH1D *hErrh = new TH1D("hErrh", "", 2, 0, 2);
-
-    Double_t eff, errl, errh;
+  Double_t eff  = 0.;
+  Double_t errl = 0.;
+  Double_t errh = 0.;
+  Double_t chi2pass = 999.;
+  Double_t chi2fail = 999.;
+   
   if(sigModPass == 0){
-    performCount(eff, errl, errh, h_mass_pass_central, h_mass_fail_central, cpass, cfail, effType, 0, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
-    hEff-> SetBinContent(1, eff);
-    hErrl->SetBinContent(1, errl);
-    hErrh->SetBinContent(1, errh);
-
-    performCount(eff, errl, errh, h_mass_pass_forward, h_mass_fail_forward, cpass, cfail, effType, 1, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
-    hEff-> SetBinContent(2, eff); 
-    hErrl->SetBinContent(2, errl); 
-    hErrh->SetBinContent(2, errh);
-
+    performCount(eff, errl, errh, h_mass_pass, h_mass_fail, cpass, cfail, effType, etaRegion, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
   }else{
-    performFit(eff, errl, errh, h_mass_pass_central, h_mass_fail_central, sigModPass, bkgModPass, sigModFail, bkgModFail, cpass, cfail, effType, 0, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
-    hEff-> SetBinContent(1, eff);
-    hErrl->SetBinContent(1, errl);
-    hErrh->SetBinContent(1, errh);
-
-    performFit(eff, errl, errh, h_mass_pass_forward, h_mass_fail_forward, sigModPass, bkgModPass, sigModFail, bkgModFail, cpass, cfail, effType, 1, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
-    hEff-> SetBinContent(2, eff);
-    hErrl->SetBinContent(2, errl);
-    hErrh->SetBinContent(2, errh);
-
+    performFit(eff, errl, errh, chi2pass, chi2fail, h_mass_pass, h_mass_fail, sigModPass, bkgModPass, sigModFail, bkgModFail, cpass, cfail, effType, etaRegion, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
   }
   delete cpass;
   delete cfail;
 
-  TFile *outfile = new TFile(outputDir + TString("/Run") + runNum + TString("/eff.root"), "RECREATE");
-  h_mass_pass_central->Write();
-  h_mass_fail_central->Write();
-  h_mass_pass_forward->Write();
-  h_mass_fail_forward->Write();
-  hEff-> Write();
-  hErrl->Write();
-  hErrh->Write();
+  std::vector<float> resultEff = {};
 
-  outfile->Close();
-  delete outfile;
+  resultEff.push_back(eff);
+  resultEff.push_back(errl);
+  resultEff.push_back(errh);
+  resultEff.push_back(chi2pass);
+  resultEff.push_back(chi2fail);
 
-  return eff;
+  return resultEff;
 
 } 
 //--------------------------------------------------------------------------------------------------
 void generateTemplate(
 	const TString mcfilename,
 	const TString purwDir,
-	const Float_t meanPU 
+	const Int_t   meanPU 
 ){
   cout << "Creating histogram templates... "; cout.flush();
 
   TFile *infile    = new TFile(mcfilename);
   TTree *eventTree = (TTree*)infile->Get("Events");
 
-  TFile *f_rw_90X = TFile::Open(Form("%s/ReweightHistogram/pileup_rw_90X_%f.root", purwDir.Data(), meanPU), "read");
-  TH1D *h_rw = (TH1D*) f_rw_90X->Get("h_rw");
+  Int_t modPU = meanPU;
+  if(modPU < minPU) modPU = minPU;
+  else if(modPU > maxPU) modPU = maxPU;
+
+  TFile *f_rw = TFile::Open(Form("%s/ReweightHistogram/pileup_rw_%d.root", purwDir.Data(), modPU), "read");
+  TH1D *h_rw = (TH1D*) f_rw->Get("h_rw");
 
   Float_t mass, pt, eta, phi;
   Double_t weight, wgt;
@@ -229,6 +218,9 @@ void generateTemplate(
   outfile.Write();
   outfile.Close();
 
+  f_rw->Close();
+  delete f_rw;
+
   cout << "Done!" << endl;
 }
 //--------------------------------------------------------------------------------------------------
@@ -258,10 +250,10 @@ void performCount(
   if(!etaRegion) sprintf(binlabelx, "0.0 < |#eta| < 0.9");
   else           sprintf(binlabelx, "0.9 < |#eta| < 2.4");
 
-  sprintf(binlabely, "27 GeV/c < p_{T} < 13000 GeV/c");
+  sprintf(binlabely, "30 GeV/c < p_{T} < 13000 GeV/c");
   sprintf(effstr,"#varepsilon = %.4f_{ -%.4f}^{ +%.4f}",resEff,resErrl,resErrh);
-//  sprintf(lumitext,"%.0f pb^{-1}  at  #sqrt{s} = 13 TeV",lumi);
-  sprintf(lumitext,"  %.0f lumi-sections at  #sqrt{s} = 13 TeV",lumi);
+  sprintf(lumitext,"%.1f pb^{-1}  at  #sqrt{s} = 13 TeV",lumi);
+//  sprintf(lumitext,"  %.0f lumi-sections at  #sqrt{s} = 13 TeV",lumi);
   sprintf(ylabel,"Events / 1 GeV/c^{2}");
 
   sprintf(pname,"%s_%s_pass_%d", effType.Data(), etaRegion ? "forward" : "central", iBin);
@@ -291,7 +283,7 @@ void performCount(
 
 //--------------------------------------------------------------------------------------------------
 void performFit(
-	Double_t &resEff, Double_t &resErrl, Double_t &resErrh, TH1D *passHist, TH1D *failHist, 
+	Double_t &resEff, Double_t &resErrl, Double_t &resErrh, Double_t &resChi2Pass, Double_t &resChi2Fail, TH1D *passHist, TH1D *failHist, 
 	const Int_t sigpass, const Int_t bkgpass, const Int_t sigfail, const Int_t bkgfail,
 	TCanvas *cpass, TCanvas *cfail, const TString effType, const Bool_t etaRegion, const Int_t iBin, const Float_t lumi, const TString format
 ){
@@ -367,7 +359,10 @@ void performFit(
     bkgFail = new CExponential(m, kFALSE, etaRegion);
     nflfail += 1;
   } else if(bkgfail==2) {
-    bkgFail = new CQuadratic(m, kFALSE, etaRegion, 0.,0.,0.,0.,0.,0.);
+    auto vBkgPars = preFit(failHist);
+
+    bkgFail = new CQuadratic(m, kFALSE, etaRegion, vBkgPars[0], vBkgPars[1], vBkgPars[2], vBkgPars[3], vBkgPars[4], vBkgPars[5]);
+//    bkgFail = new CQuadratic(m, kFALSE, etaRegion, 0.,0.,0.,0.,0.,0.);
     nflfail += 3;
   }
 
@@ -401,6 +396,26 @@ void performFit(
   RooMsgService::instance().setSilentMode(kTRUE);
   fitResult = totalPdf.fitTo(*dataCombined,
                              RooFit::PrintEvalErrors(-1),
+                             RooFit::PrintLevel(-1),
+                             RooFit::Warnings(0),
+                             RooFit::Extended(),
+                             RooFit::Strategy(strategy), // MINOS STRATEGY
+                             RooFit::Minos(RooArgSet(eff)),
+                             RooFit::Save());
+
+  fitResult = totalPdf.fitTo(*dataCombined,
+                             RooFit::PrintEvalErrors(-1),
+                             RooFit::PrintLevel(-1),
+                             RooFit::Warnings(0),
+                             RooFit::Extended(),
+                             RooFit::Strategy(strategy), // MINOS STRATEGY
+                             RooFit::Minos(RooArgSet(eff)),
+                             RooFit::Save());
+
+  fitResult = totalPdf.fitTo(*dataCombined,
+                             RooFit::PrintEvalErrors(-1),
+                             RooFit::PrintLevel(-1),
+                             RooFit::Warnings(0),
                              RooFit::Extended(),
                              RooFit::Strategy(strategy), // MINOS STRATEGY
                              RooFit::Minos(RooArgSet(eff)),
@@ -433,10 +448,10 @@ void performFit(
   if(!etaRegion) sprintf(binlabelx, "0.0 < |#eta| < 0.9");
   else           sprintf(binlabelx, "0.9 < |#eta| < 2.4");
 
-  sprintf(binlabely, "27 GeV/c < p_{T} < 13000 GeV/c");
+  sprintf(binlabely, "30 GeV/c < p_{T} < 13000 GeV/c");
   sprintf(effstr,"#varepsilon = %.4f_{ -%.4f}^{ +%.4f}",resEff,resErrl,resErrh);
-//  sprintf(lumitext,"%.0f pb^{-1}  at  #sqrt{s} = 13 TeV",lumi);
-  sprintf(lumitext,"  %.0f lumi-sections at  #sqrt{s} = 13 TeV",lumi);
+  sprintf(lumitext,"%.1f pb^{-1}  at  #sqrt{s} = 13 TeV",lumi);
+//  sprintf(lumitext,"  %.0f lumi-sections at  #sqrt{s} = 13 TeV",lumi);
   sprintf(ylabel,"Events / 1 GeV/c^{2}");
 
   RooPlot *mframePass = m.frame(Bins(massBin));
@@ -454,7 +469,7 @@ void performFit(
   sprintf(pname,"%s_%s_pass_%d", effType.Data(), etaRegion ? "forward" : "central", iBin);
   sprintf(yield,"%u Events",(Int_t)passHist->GetEntries());
   sprintf(nsigstr,"N_{sig} = %.1f #pm %.1f",NsigPass.getVal(),NsigPass.getPropagatedError(*fitResult));
-  sprintf(chi2str,"#chi^{2}/DOF = %.3f",mframePass->chiSquare(nflpass));
+  sprintf(chi2str,"#chi^{2}/DOF = %.3f",mframePass->chiSquare(nflpass));resChi2Pass = mframePass->chiSquare(nflpass);
   if(bkgpass>0)
     sprintf(nbkgstr,"N_{bkg} = %.1f #pm %.1f",NbkgPass.getVal(),NbkgPass.getPropagatedError(*fitResult));
   CPlot plotPass(pname,mframePass,"Passing probes","tag-probe mass [GeV/c^{2}]",ylabel);
@@ -478,7 +493,7 @@ void performFit(
   sprintf(yield,"%u Events",(Int_t)failHist->GetEntries());
   sprintf(nsigstr,"N_{sig} = %.1f #pm %.1f",NsigFail.getVal(),NsigFail.getPropagatedError(*fitResult));
   sprintf(nbkgstr,"N_{bkg} = %.1f #pm %.1f",NbkgFail.getVal(),NbkgFail.getPropagatedError(*fitResult));
-  sprintf(chi2str,"#chi^{2}/DOF = %.3f",mframePass->chiSquare(nflfail));
+  sprintf(chi2str,"#chi^{2}/DOF = %.3f",mframeFail->chiSquare(nflfail));resChi2Fail = mframeFail->chiSquare(nflfail);
   CPlot plotFail(pname,mframeFail,"Failing probes","tag-probe mass [GeV/c^{2}]",ylabel);
   plotFail.AddTextBox(binlabelx,0.21,0.75,0.51,0.80,0,kBlack,-1);
   plotFail.AddTextBox(binlabely,0.21,0.70,0.51,0.75,0,kBlack,-1);
@@ -502,3 +517,37 @@ void performFit(
   delete histfile;
 //  delete datfile;
 }
+
+//--------------------------------------------------------------------------------------------------
+std::vector<double> preFit(TH1D* failHist){
+
+//  std::vector<float> v = {1.,0.,1.,0.,1.,0.};return v;
+  TH1D *h = new TH1D("h", "", massBin, massLo, massHi);
+  TF1 *fq = new TF1("fq", "[0]+[1]*x+[2]*x*x", massLo, massHi);
+  TF1 *fl = new TF1("fl", "[0]+[1]*x", massLo, massHi);
+
+  for(int i = 0; i < 15; i++){
+    h->SetBinContent(i+1, failHist->GetBinContent(i+1));
+    h->SetBinError(i+1, failHist->GetBinError(i+1));
+  }
+  for(int i = 35; i < 50; i++){
+    h->SetBinContent(i+1, failHist->GetBinContent(i+1));
+    h->SetBinError(i+1, failHist->GetBinError(i+1));
+  }
+
+  h->Fit("fq");
+  std::cout<<fq->GetParameter(0)<<","<<fq->GetParError(0)<<" ,"<<fq->GetParameter(1)<<","<<fq->GetParError(1)<<","<<fq->GetParameter(2)<<","<<fq->GetParError(2)<<std::endl;
+  std::vector<double> v;
+
+  if(fq->GetParameter(2) > 0.){
+    h->Fit("fl");
+    std::cout<<"SWITCH TO LINEAR!"<<std::endl;
+    std::cout<<fl->GetParameter(0)<<","<<fl->GetParError(0)<<" ,"<<fl->GetParameter(1)<<","<<fl->GetParError(1)<<std::endl;
+    v = {fl->GetParameter(0), fl->GetParError(0), fl->GetParameter(1), fl->GetParError(1), 0.,0.};
+  }else{
+    v = {fq->GetParameter(0), fq->GetParError(0), fq->GetParameter(1), fq->GetParError(1), fq->GetParameter(2), fq->GetParError(2)};
+  }
+
+  return v;
+}
+

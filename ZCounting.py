@@ -10,18 +10,22 @@ import random
 import math
 import pandas
 import os.path
+import glob
 import logging as log
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-b","--beginRun",help="first run to analyze [%default]",default=299918)
 parser.add_argument("-e","--endRun",help="analyze stops when comes to this run [%default]",default=1000000)
-parser.add_argument("-m","--mergeStat",help="option to switch on merging: measurement less than lumiChunk to be merged with next measurement [%default]",default=False)
+parser.add_argument("-m","--mergeStat",help="option to switch on merging: measurement less than lumiChunk to be merged with next measurement [%default]",default=True)
 parser.add_argument("-l","--lumiChunk",help="define statistics: measurement less than this to be merged with next measurement [%default]",default=10.)
 parser.add_argument("-p","--parametrizeType",help="define parametrization: 1 is for extrapolation, 2 is for piece-wise function",default=1)
 parser.add_argument("-s","--sizeChunk",help="define granularity: numbers of LS to be merged for one measurement [%default]",default=50)
 parser.add_argument("-u","--microBarn",help="luminosity in input csv file is in microbarn",default=False)
 parser.add_argument("-v","--verbose",help="increase logging level from INFO to DEBUG",default=False,action="store_true")
+parser.add_argument("-c","--writeSummaryCSV",help="produce merged CSV with all runs",default=True)
+parser.add_argument("-a","--dirCSV",help="where to write/store the CSV files",default="/eos/cms/store/group/comm_luminosity/ZCounting/csvFiles2018/")
+parser.add_argument("-x","--dirEff",help="where to write/store efficiency Plots",default="/afs/cern.ch/user/j/jsalfeld/www/CMS-2018-ZRateData/ZAndMuonEfficiencies/RunsAndFits/")
 
 args = parser.parse_args()
 if args.verbose:
@@ -30,10 +34,14 @@ else:
     log.basicConfig(format="%(levelname)s: %(message)s", level=log.INFO)
 
 #ByLS csv inputs
-inFile="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/2017LumiByLS_hfet_trig_PU.csv"
+#inFile="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/2017LumiByLS_hfet_trig_PU.csv"
+inFileList=glob.glob('/eos/cms/store/group/comm_luminosity/ZCounting/brilcalcFile2018/*csv')
+inFileList.sort(key=os.path.getmtime)
+inFile=inFileList[-1]
+print "The brilcalc csv file: "+str(inFile)
 
 #Data inputs
-eosDir="/eos/cms/store/group/comm_luminosity/ZCounting/DQMFiles2017/cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2017/SingleMuon/"
+eosDir="/eos/cms/store/group/comm_luminosity/ZCounting/DQMFiles2018/cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2018/SingleMuon/"
 
 #MC inputs: to build MC*Gaussian template for efficiency fitting
 mcDir="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/LookupTable/"
@@ -41,7 +49,7 @@ mcShapeSubDir="MCFiles/92X_norw_IsoMu27_noIso/"
 
 #Constant settings
 secPerLS=float(23.3)
-currentYear=2017
+currentYear=2018
 maximumLS=2500
 chunkSize=int(args.sizeChunk)
 lumiChunk=float(args.lumiChunk)
@@ -54,15 +62,16 @@ if args.microBarn:
     lumiChunk = lumiChunk*1000000.
 
 log.info("Loading C marco...")
-ROOT.gROOT.Macro( os.path.expanduser( '~/.rootlogon.C' ) )
-ROOT.gROOT.LoadMacro("calculateDataEfficiency_v3.C")
+ROOT.gROOT.Macro( os.path.expanduser( '/afs/cern.ch/work/j/jsalfeld/Princeton/forZCounting2018/.rootlogon.C' ) )
+ROOT.gROOT.LoadMacro("/afs/cern.ch/work/j/jsalfeld/Princeton/forZCounting2018/CMSSW_9_4_4/src/ZCounting/calculateDataEfficiency.C")
 ROOT.gROOT.SetBatch(True)
 
 log.info("Loading input byls csv...")
-lumiFile=open(inFile)
+lumiFile=open(str(inFile))
 lumiLines=lumiFile.readlines()
-data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
+data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-11,len(lumiLines)-10,len(lumiLines)-9,len(lumiLines)-8,len(lumiLines)-7,len(lumiLines)-6,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
 log.debug("%s",data.axes)
+log.info("Loading input byls csv DONE...")
 
 # TAKE INPUT CSV FILE AND STRUCTURE PER-RUN BASIS, THEN CREATE LIST OF LUMI AND LS`s PER RUN
 LSlist=data.groupby('#run:fill')['ls'].apply(list)
@@ -75,7 +84,8 @@ else:
 avgpuList=data.groupby('#run:fill')['avgpu'].apply(list)
 timeList=data.groupby('#run:fill')['time'].apply(list)
 
-for i in range(0,len(LSlist)):
+for i in range(0,len(LSlist)):	
+	#print LSlist
 	LSlist[i]=[int(x.split(':')[0]) for x in LSlist[i]]
 fillRunlist=data.drop_duplicates('#run:fill')['#run:fill'].tolist()
 
@@ -90,26 +100,18 @@ for run_i in range(0,len(fillRunlist)):
     fill=int(fillRunlist[run_i].split(':')[1])
 
     if run<int(args.beginRun) or run>=int(args.endRun):
-        continue;
+        continue
     if run<299918:#Z Coungig module is enabled since this run 
 	continue
 
-    #era split follows here:https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmV2017Analysis#DATA
-    if run<=302029:
-	era="C"
-    elif run>=302030 and run<=303434:
-	era="D"
-    elif run>=303435 and run<=304826:
-	era="E"
-    elif run>=304911 and run<=306462:
-        era="F"
-    elif run>=306464 and run<=306826:
-        era="G"
-    elif run>=306828:
-        era="H"
-    else:
-        log.error("===RunNum %s cannot be associated with an era",run)
+    #check if run was processed already
+    processedRun = glob.glob(args.dirEff+'Run'+str(run))
+    if len(processedRun)>0:
+        print "Run "+str(run)+" was already processed, skipping and going to next run"
         continue
+    
+
+    #era split follows here:https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmV2017Analysis#DATA
 
     log.info("===Running Run %i",run)
     log.info("===Running Fill %i",fill)
@@ -221,18 +223,18 @@ for run_i in range(0,len(fillRunlist)):
     prevStaEffE=0.98
 
     log.info("===Loading input DQMIO.root file...")
-    eosFile = ""
-    if os.path.isfile(eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root"):
-        eosFile = eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v1__DQMIO.root"
-    elif os.path.isfile(eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v2__DQMIO.root"):
-        eosFile = eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v2__DQMIO.root"
-    elif os.path.isfile(eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v3__DQMIO.root"):
-        eosFile = eosDir+"000"+str(run)[:-2]+"xx/DQM_V0001_R000"+str(run)+"__SingleMuon__Run2017"+era+"-PromptReco-v3__DQMIO.root"
-    else:
-        log.warning("===Missing DQM files for Run%i",run)
+    eosFileList = glob.glob('/eos/cms/store/group/comm_luminosity/ZCounting/DQMFiles2018/cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2018/SingleMuon/*/*'+str(run)+'*root')
+
+    if not len(eosFileList)>0:
+	print "The file does not yet exist for run: "+str(run)
 	continue
 
+    else:
+	eosFile=eosFileList[0]
+
+    print "The file exists: "+str(eosFile)+" for run  "+str(run)
     log.info("===Looping over LSchunks...")
+
     for chunk_i in range(0,len(LSchunks)):
         nMeasurements=nMeasurements+1
 
@@ -267,13 +269,13 @@ for run_i in range(0,len(fillRunlist)):
         log.debug("======timeWindow: %f",timeWindow_i)
 
         log.debug("Openning DQMIO.root file: %s", eosFile)
-        HLTeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0,recLumi_i)
-        HLTeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",1,0,0,0,0,recLumi_i)
-        SITeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",0,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        SITeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",1,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresB_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",0,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresE_i=ROOT.calculateDataEfficiency_v3(0,str(eosFile),".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",1,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        Zyieldres_i=ROOT.calculateDataEfficiency_v3(1,str(eosFile),".",str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0)
+        HLTeffresB_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0,recLumi_i)
+        HLTeffresE_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",1,0,0,0,0,recLumi_i)
+        SITeffresB_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",0,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        SITeffresE_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",1,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresB_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",0,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresE_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",1,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        Zyieldres_i=ROOT.calculateDataEfficiency(1,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0)
 
         HLTeffB_i = HLTeffresB_i[0]
         HLTeffE_i = HLTeffresE_i[0]
@@ -314,9 +316,12 @@ for run_i in range(0,len(fillRunlist)):
 	ZEEEffCorr = 0
 
 	if paraType == 1:
-	    ZBBEffCorr = 0.0123732 + 0.000161345 * avgPileup_i
-            ZBEEffCorr = 0.00875762 + 0.000493846 * avgPileup_i
-            ZEEEffCorr = 0.0160629 + 0.000296308 * avgPileup_i
+	    ZBBEffCorr = 0.00305155 + 0.000519427 * avgPileup_i
+	    ZBEEffCorr = 0.00585766 + 0.000532229 * avgPileup_i
+	    ZEEEffCorr = 0.0114659  + 0.00048351  * avgPileup_i
+            #ZBBEffCorr = 0.0123732 + 0.000161345 * avgPileup_i
+            #ZBEEffCorr = 0.00875762 + 0.000493846 * avgPileup_i
+            #ZEEEffCorr = 0.0160629 + 0.000296308 * avgPileup_i
 
 	if paraType == 2:
     	    if avgPileup_i < 50:
@@ -350,6 +355,13 @@ for run_i in range(0,len(fillRunlist)):
 
 	#Variables to write in csv file
         fillarray.append(fill)
+
+	#datestamp_low=time_chunks[chunk_i][0].split(" ")
+	#date_low=ROOT.TDatime(currentYear,int(datestamp_low[0].split("/")[0]),int(datestamp_low[0].split("/")[1]),int(datestamp_low[1].split(":")[0]),int(datestamp_low[1].split(":")[1]),int(datestamp_low[1].split(":")[2]))
+        #datestamp_up=time_chunks[chunk_i][-1].split(" ")
+	#date_up=ROOT.TDatime(currentYear,int(datestamp_up[0].split("/")[0]),int(datestamp_up[0].split("/")[1]),int(datestamp_up[1].split(":")[0]),int(datestamp_up[1].split(":")[1]),int(datestamp_up[1].split(":")[2]))
+
+
         beginTime.append(time_chunks[chunk_i][0])
         endTime.append(time_chunks[chunk_i][-1])
         Zrate.append(ZRate)
@@ -382,13 +394,61 @@ for run_i in range(0,len(fillRunlist)):
         ZBEeff.append(ZBEEff)
         ZEEeff.append(ZEEEff)
 
-
-    with open('csvfile'+str(run)+'.csv','wb') as file:
+    ## Write Per Run CSV Files 
+    print "Writing per Run CSV file"
+    with open(args.dirCSV+'csvfile'+str(run)+'.csv','wb') as file:
         for c in range(0,nMeasurements):
+		print str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c]) 
                 file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c]))
 		file.write('\n')
 
-    with open('effcsvfile'+str(run)+'.csv','wb') as file:
+    with open(args.dirCSV+'effcsvfile'+str(run)+'.csv','wb') as file:
         for c in range(0,nMeasurements):
+		print str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c]) 
                 file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c])+","+str(beginLS[c])+","+str(endLS[c])+","+str(lumiRec[c])+","+str(windowarray[c])+","+str(HLTeffB[c])+","+str(HLTeffE[c])+","+str(SITeffB[c])+","+str(SITeffE[c])+","+str(StaeffB[c])+","+str(StaeffE[c])+","+str(ZMCeff[c])+","+str(ZMCeffBB[c])+","+str(ZMCeffBE[c])+","+str(ZMCeffEE[c])+","+str(ZBBeff[c])+","+str(ZBEeff[c])+","+str(ZEEeff[c])+","+str(pileUp[c]))
                 file.write('\n')
+
+
+## Write Big CSV File
+print "Writing overall CSV file"
+if args.writeSummaryCSV:
+	rateFileList=sorted(glob.glob(args.dirCSV+'csvfile*.csv'))	
+	with open(args.dirCSV+'Mergedcsvfile.csv','w') as file:
+		file.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount")
+		file.write('\n')
+		print "There are "+str(len(rateFileList))+" runs in the directory"
+		for m in range(0,len(rateFileList)):						
+			print "producing now csv file: "+rateFileList[m]
+			try:
+				iterF=open(rateFileList[m])
+				lines=iterF.readlines()
+				for line in lines:
+					element=line.split(',')
+					if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0" or element[3]=="inf":
+						continue
+					file.write(line)
+			except IOError as err:
+    				print err.errno 
+                                print err.strerror
+				continue
+
+        effFileList=sorted(glob.glob(args.dirCSV+'effcsvfile*.csv'))
+	print "Starting to write efficiency files."	
+        with open(args.dirCSV+'Mergedeffcsvfile.csv','wb') as fileTwo:
+		fileTwo.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount,beginLS,endLS,lumiRec,windowarray,HLTeffB,HLTeffE,SITeffB,SITeffE,,StaeffB,StaeffE,ZMCeff,ZMCeffBB,ZMCeffBE,ZMCeffEE,ZBBeff,ZBEeff,ZEEeff,pileUp")
+		fileTwo.write('\n')
+		for m in range(0,len(effFileList)):
+
+			print "producing now eff csv file: "+rateFileList[m]
+			try:
+				iterF=open(effFileList[m])
+				lines=iterF.readlines()
+				for line in lines:
+					element=line.split(',')
+					if element[3]=="nan" or element[3]=="0.0" or element[3]=="-0.0" or element[3]=="inf":
+						continue
+					fileTwo.write(line)
+                        except IOError as err:
+				print err.errno 
+                                print err.strerror
+                                continue
