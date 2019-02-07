@@ -68,8 +68,21 @@ void performFit(
 std::vector<double> preFit(TH1D *failHist);
 
 
+float getZyield(
+                const TString inputFile,
+                const TString hName,        //Name of the histogram to take the Z yield from
+                const TString runNum,
+                const Int_t   startLS,
+                const Int_t   endLS
+){
+  TFile *infile = new TFile(inputFile);
+
+  TH1F *h_yield = (TH1F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/"+hName);
+
+  return h_yield->Integral(startLS,endLS);
+}
+
 std::vector<float> calculateDataEfficiency(
-                const Int_t   getYield,     // just get the yield  
 		const TString inputFile,    // DQMIO file 
 		const TString outputDir,    // output directory
 		const TString runNum,       // Runnum
@@ -88,17 +101,6 @@ std::vector<float> calculateDataEfficiency(
                 const TString purwDir="",
 		const TString format="png" // plot format
 ){
-
-  if(getYield == 1){
-  TFile *infile = new TFile(inputFile);
-
-  TH1F *h_yield = (TH1F*)infile->Get("DQMData/Run "+runNum+"/ZCounting/Run summary/Histograms/h_yield_Z");
-
-  std::vector<float> yieldEff = {};
-  yieldEff.push_back(h_yield->Integral(startLS,endLS));
-
-  return yieldEff;
-  }
 
   gSystem->mkdir(outputDir,kTRUE);
   CPlot::sOutDir = outputDir + TString("/Run") + runNum + TString("/plots");
@@ -129,9 +131,11 @@ std::vector<float> calculateDataEfficiency(
   Double_t chi2fail = 999.;
    
   if(sigModPass == 0){
-    performCount(eff, errl, errh, h_mass_pass, h_mass_fail, cpass, cfail, effType, etaRegion, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
+    performCount(eff, errl, errh, h_mass_pass, h_mass_fail, cpass, cfail, effType, etaRegion, iBin, lumi, format);
+    //cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
   }else{
-    performFit(eff, errl, errh, chi2pass, chi2fail, h_mass_pass, h_mass_fail, sigModPass, bkgModPass, sigModFail, bkgModFail, cpass, cfail, effType, etaRegion, iBin, lumi, format);//cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
+    performFit(eff, errl, errh, chi2pass, chi2fail, h_mass_pass, h_mass_fail, sigModPass, bkgModPass, sigModFail, bkgModFail, cpass, cfail, effType, etaRegion, iBin, lumi, format);
+    //cout << effType.Data() << ": " << eff << " + " << errh << " - " << errl << endl;
   }
   delete cpass;
   delete cfail;

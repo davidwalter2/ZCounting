@@ -21,7 +21,6 @@ parser.add_argument("-m","--mergeStat",help="option to switch on merging: measur
 parser.add_argument("-l","--lumiChunk",help="define statistics: measurement less than this to be merged with next measurement [%default]",default=10.)
 parser.add_argument("-p","--parametrizeType",help="define parametrization: 1 is for extrapolation, 2 is for piece-wise function",default=1)
 parser.add_argument("-s","--sizeChunk",help="define granularity: numbers of LS to be merged for one measurement [%default]",default=50)
-parser.add_argument("-u","--microBarn",help="luminosity in input csv file is in microbarn",default=False)
 parser.add_argument("-v","--verbose",help="increase logging level from INFO to DEBUG",default=False,action="store_true")
 parser.add_argument("-c","--writeSummaryCSV",help="produce merged CSV with all runs",default=True)
 parser.add_argument("-a","--dirCSV",help="where to write/store the CSV files",default="/eos/cms/store/group/comm_luminosity/ZCounting/csvFiles2018/")
@@ -91,12 +90,9 @@ f_ZEEEffCorr = fGen(0.0114659 ,0.00048351 , 0.0160629 ,0.000296308,  0.00132398,
 
 ########################################
 
-if args.microBarn:
-    lumiChunk = lumiChunk*1000000.
-
 #log.info("Loading C marco...")	#I think we don't need this
 #ROOT.gROOT.Macro(os.path.expanduser(os.path.dirname(os.path.realpath(__file__))+'.rootlogon.C' ) )
-ROOT.gROOT.LoadMacro(os.path.dirname(os.path.realpath(__file__))+"/calculateDataEfficiency.C")
+ROOT.gROOT.LoadMacro(os.path.dirname(os.path.realpath(__file__))+"/calculateDataEfficiency.C") #load function getZyield(...) and calculateDataEfficiency(...)
 
 #turn off graphical output on screen
 ROOT.gROOT.SetBatch(True)
@@ -110,12 +106,17 @@ log.info("Loading input byls csv DONE...")
 
 # TAKE INPUT CSV FILE AND STRUCTURE PER-RUN BASIS, THEN CREATE LIST OF LUMI AND LS`s PER RUN
 LSlist=data.groupby('#run:fill')['ls'].apply(list)
-if args.microBarn:
+
+is_microBarn = 'delivered(/ub)' in data.columns.tolist()
+
+if is_microBarn: 
     recLumiList=data.groupby('#run:fill')['recorded(/ub)'].apply(list)
     delLumiList=data.groupby('#run:fill')['delivered(/ub)'].apply(list)
+    lumiChunk = lumiChunk*1000000.
 else:
     recLumiList=data.groupby('#run:fill')['recorded(/pb)'].apply(list)
     delLumiList=data.groupby('#run:fill')['delivered(/pb)'].apply(list)
+
 avgpuList=data.groupby('#run:fill')['avgpu'].apply(list)
 timeList=data.groupby('#run:fill')['time'].apply(list)
 
@@ -280,7 +281,7 @@ for run_i in range(0,len(fillRunlist)):
 	delLumi_i = sum(Del_chunks[chunk_i])	
         deadtime_i = recLumi_i/delLumi_i
 
-        if args.microBarn:
+        if is_microBarn:
             recLumi_i = recLumi_i/1000000.
             delLumi_i = delLumi_i/1000000.
 
@@ -304,13 +305,16 @@ for run_i in range(0,len(fillRunlist)):
         log.debug("======timeWindow: %f",timeWindow_i)
 
         log.debug("Openning DQMIO.root file: %s", eosFile)
-        HLTeffresB_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0,recLumi_i)
-        HLTeffresE_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",1,0,0,0,0,recLumi_i)
-        SITeffresB_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",0,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        SITeffresE_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",1,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresB_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",0,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresE_i=ROOT.calculateDataEfficiency(0,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",1,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        Zyieldres_i=ROOT.calculateDataEfficiency(1,str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0)
+        HLTeffresB_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0,recLumi_i)
+        HLTeffresE_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",1,0,0,0,0,recLumi_i)
+        SITeffresB_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",0,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        SITeffresE_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",1,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresB_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",0,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresE_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",1,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        
+        Zyield_i=ROOT.getZyield(str(eosFile),"h_yield_Z",str(run),LSchunks[chunk_i][0],LSchunks[chunk_i][-1])
+        Zyield_BB_i = ROOT.getZyield(str(eosFile),"h_yieldBB_Z",str(run),LSchunks[chunk_i][0],LSchunks[chunk_i][-1])
+        Zyield_EE_i = ROOT.getZyield(str(eosFile),"h_yieldEE_Z",str(run),LSchunks[chunk_i][0],LSchunks[chunk_i][-1])
 
         HLTeffB_i = HLTeffresB_i[0]
         HLTeffE_i = HLTeffresE_i[0]
@@ -318,7 +322,6 @@ for run_i in range(0,len(fillRunlist)):
         SITeffE_i = SITeffresE_i[0]
         StaeffB_i = StaeffresB_i[0]
         StaeffE_i = StaeffresE_i[0]
-        Zyield_i  = Zyieldres_i[0]
 
         if StaeffresB_i[3] > staFitChi2Th or StaeffresB_i[4] > staFitChi2Th or StaeffB_i >= staFitEffThHi or StaeffB_i <= staFitEffThLo:
             StaeffB_i = prevStaEffB
@@ -337,9 +340,9 @@ for run_i in range(0,len(fillRunlist)):
         log.debug("======ZRawYield: %f",Zyield_i)
 
 	#ZtoMuMu efficiency purely from data
-        ZBBEff=(StaeffB_i*StaeffB_i * SITeffB_i*StaeffB_i * (1-(1-HLTeffB_i)*(1-HLTeffB_i)))
+        ZBBEff=(StaeffB_i*StaeffB_i * SITeffB_i*SITeffB_i * (1-(1-HLTeffB_i)*(1-HLTeffB_i)))
         ZBEEff=(StaeffB_i*StaeffE_i * SITeffB_i*SITeffE_i * (1-(1-HLTeffB_i)*(1-HLTeffE_i)))
-        ZEEEff=(StaeffE_i*StaeffE_i * SITeffE_i*StaeffE_i * (1-(1-HLTeffE_i)*(1-HLTeffE_i)))
+        ZEEEff=(StaeffE_i*StaeffE_i * SITeffE_i*SITeffE_i * (1-(1-HLTeffE_i)*(1-HLTeffE_i)))
 
 	#ZtoMuMu efficiency correction as a parametrized function of pile-up
         ZBBEffCorr = f_ZBBEffCorr(avgPileup_i)
@@ -350,7 +353,12 @@ for run_i in range(0,len(fillRunlist)):
 	ZMCEffBB = ZBBEff - ZBBEffCorr 
 	ZMCEffBE = ZBEEff - ZBEEffCorr
 	ZMCEffEE = ZEEEff - ZEEEffCorr
-	ZMCEff = (ZMCEffBB * 0.077904 + ZMCEffBE * 0.117200 + ZMCEffEE * 0.105541)/0.300644 
+	
+	#Multiply (average?) frequency of each category with its efficiency
+	#ZMCEff = (ZMCEffBB * 0.077904 + ZMCEffBE * 0.117200 + ZMCEffEE * 0.105541)/0.300644 
+        #Better take the actual frequency
+        ZMCEff = (ZMCEffBB*Zyield_BB_i + ZMCEffBE*(Zyield_i-Zyield_BB_i-Zyield_EE_i) + ZMCEffEE*Zyield_EE_i) / Zyield_i
+        
         log.debug("======ZToMuMuEff: %f",ZMCEff)
         log.debug("======ZToMuMuEff: %f, %f ,%f, %f, %f, %f",ZMCEffBB, ZMCEffBE, ZMCEffEE, ZBBEff, ZBEEff, ZEEEff)
 
