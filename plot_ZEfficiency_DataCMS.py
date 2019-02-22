@@ -18,7 +18,6 @@ ROOT.gStyle.SetCanvasPreferGL(1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--cms", default="nothing", type=string, help="give the CMS csv as input")
-parser.add_argument("-f", "--fill", default='6252', type=str, help="give fill numbers")
 parser.add_argument("-s", "--saveDir", default='./', type=str, help="give fill numbers")
 args = parser.parse_args()
 if args.cms=="nothing":
@@ -129,10 +128,8 @@ fills=data.drop_duplicates('fill')['fill'].tolist()
 
 
 cmsfile=open(str(args.cms))
-fillsx=args.fill.split(",")
 suffix=""
 
-print "Fills being processed: "+str(fillsx)
 if "Central" in str(args.cms):
 	suffix="Barrel"
 else:
@@ -141,8 +138,6 @@ else:
 print suffix
 
 linescms=cmsfile.readlines()
-#linesatlas=atlasfile.readlines()
-
 
 metaFills=array('d')
 
@@ -209,8 +204,8 @@ for fill in fills:
 
 
 #	plotPerFillEff(nMeas,nFill,effArray,times,suffixN)
-	avrgHLTBEff.append(plotPerFillEff(k,fill,HLTBeff,cmsTimes,"_IsoMu27_Barrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
-	avrgHLTEEff.append(plotPerFillEff(k,fill,HLTEeff,cmsTimes,"_IsoMu27_Endcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgHLTBEff.append(plotPerFillEff(k,fill,HLTBeff,cmsTimes,"_IsoMu24_Barrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
+	avrgHLTEEff.append(plotPerFillEff(k,fill,HLTEeff,cmsTimes,"_IsoMu24_Endcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
 	avrgSITBEff.append(plotPerFillEff(k,fill,SITBeff,cmsTimes,"_SelAndTrack_Barrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
 	avrgSITEEff.append(plotPerFillEff(k,fill,SITEeff,cmsTimes,"_SelAndTrack_Endcap_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
 	avrgStaBEff.append(plotPerFillEff(k,fill,StaBeff,cmsTimes,"_Standalone_Barrel_Efficiency",True,args.saveDir+"PlotsFill_"+str(fill)))
@@ -226,8 +221,8 @@ for fill in fills:
 
 	metaFills.append(float(fill))
 
-plotPerFillEff(len(avrgHLTBEff),"all",avrgHLTBEff,metaFills,"SummaryIsoMu27_Barrel_Efficiency",False,args.saveDir)
-plotPerFillEff(len(avrgHLTEEff),"all",avrgHLTEEff,metaFills,"SummaryIsoMu27_Endcap_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgHLTBEff),"all",avrgHLTBEff,metaFills,"SummaryIsoMu24_Barrel_Efficiency",False,args.saveDir)
+plotPerFillEff(len(avrgHLTEEff),"all",avrgHLTEEff,metaFills,"SummaryIsoMu24_Endcap_Efficiency",False,args.saveDir)
 plotPerFillEff(len(avrgSITBEff),"all",avrgSITBEff,metaFills,"SummarySelAndTrack_Barrel_Efficiency",False,args.saveDir)
 plotPerFillEff(len(avrgSITEEff),"all",avrgSITEEff,metaFills,"SummarySelAndTrack_Endcap_Efficiency",False,args.saveDir)
 plotPerFillEff(len(avrgStaBEff),"all",avrgStaBEff,metaFills,"SummaryStandalone_Barrel_Efficiency",False,args.saveDir)

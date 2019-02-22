@@ -254,7 +254,7 @@ void performCount(
   if(!etaRegion) sprintf(binlabelx, "0.0 < |#eta| < 0.9");
   else           sprintf(binlabelx, "0.9 < |#eta| < 2.4");
 
-  sprintf(binlabely, "30 GeV/c < p_{T} < 13000 GeV/c");
+  sprintf(binlabely, "27 GeV/c < p_{T} < 13000 GeV/c");
   sprintf(effstr,"#varepsilon = %.4f_{ -%.4f}^{ +%.4f}",resEff,resErrl,resErrh);
   sprintf(lumitext,"%.1f pb^{-1}  at  #sqrt{s} = 13 TeV",lumi);
 //  sprintf(lumitext,"  %.0f lumi-sections at  #sqrt{s} = 13 TeV",lumi);
@@ -452,7 +452,7 @@ void performFit(
   if(!etaRegion) sprintf(binlabelx, "0.0 < |#eta| < 0.9");
   else           sprintf(binlabelx, "0.9 < |#eta| < 2.4");
 
-  sprintf(binlabely, "30 GeV/c < p_{T} < 13000 GeV/c");
+  sprintf(binlabely, "27 GeV/c < p_{T} < 13000 GeV/c");
   sprintf(effstr,"#varepsilon = %.4f_{ -%.4f}^{ +%.4f}",resEff,resErrl,resErrh);
   sprintf(lumitext,"%.1f pb^{-1}  at  #sqrt{s} = 13 TeV",lumi);
 //  sprintf(lumitext,"  %.0f lumi-sections at  #sqrt{s} = 13 TeV",lumi);

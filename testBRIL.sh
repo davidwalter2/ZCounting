@@ -6,4 +6,8 @@ TIME=`date '+%H:%M:%S'`
 echo $DATE
 echo $TIME
 
-brilcalc lumi --begin "04/20/18 13:54:51" --end "$DATE $TIME" -b "STABLE BEAMS" --byls -o /eos/cms/store/group/comm_luminosity/ZCounting/brilcalcFile2018/briloutByLS_${DATE2}.csv --hltpath="HLT_IsoMu27_v*"
+#2016
+brilcalc lumi --begin 272786 --end 284044 -b "STABLE BEAMS" --byls -o /afs/cern.ch/work/d/dwalter/CMSSW_9_2_8/src/ZCounting/FillByLs_2016.csv --hltpath="HLT_IsoMu24_v*"
+
+#2018:
+brilcalc lumi --begin 315252 --end 325175 -b "STABLE BEAMS" --byls -o /afs/cern.ch/work/d/dwalter/CMSSW_9_2_8/src/ZCounting/FillByLs_2018.csv --hltpath="HLT_IsoMu24_v*" -normtag="hfoc18v5"

@@ -12,9 +12,16 @@ import argparse
 import scipy.integrate as integrate
 ROOT.gROOT.SetBatch(True)
 
-ROOT.gStyle.SetCanvasPreferGL(1)
+parser = argparse.ArgumentParser()
 
-cmsfile=open("/afs/cern.ch/user/l/lumipro/public/ZRatesFiles/2017Rates/ZCounting2017_CMS_Scaled_YYMMDD_v1.csv")
+parser.add_argument("-c", "--cms", default="/eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/csvFiles/Mergedcsvfile.csv", type=string, help="give the CMS csv as input")
+parser.add_argument("-s", "--saveDir", default='/eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZCrossSectionMonitoring/', type=str, help="give output dir")
+args = parser.parse_args()
+
+
+ROOT.gStyle.SetCanvasPreferGL(1)
+cmsfile=open(args.cms)
+#cmsfile=open("/afs/cern.ch/user/l/lumipro/public/ZRatesFiles/2017Rates/ZCounting2017_CMS_Scaled_YYMMDD_v1.csv")
 #cmsfile=open("Z_Counting_AllFillsAfter5400_Allplus.txt")
 #cmsfile=open("/afs/cern.ch/user/l/lumipro/public/ZRatesFiles/2018Rates/ZCounting2018_CMS_Scaled_MMDDYY_v1.csv")
 linescms=cmsfile.readlines()
@@ -25,7 +32,7 @@ k=-1
 
 for line in linescms:
 	k=k+1
-	if k==0:
+	if k<=1:
 		continue
 	elements=line.split(",")
 	if float(elements[3])/float(elements[4])<500. or float(elements[3])/float(elements[4])>900.:
@@ -49,4 +56,5 @@ graph_metaatlasXsec.Fit("pol1","","",0.0045,0.018)
 c3=ROOT.TCanvas("c3","c3",1000,600)
 c3.SetGrid()
 graph_metaatlasXsec.Draw("AP")
-c3.SaveAs("xL18v2.root")
+c3.SaveAs(args.saveDir+"xL18v2.png")
+#c3.SaveAs(args.saveDir+"xL18v2.root")

@@ -1,13 +1,10 @@
 #!/bin/bash
+
 runNum=$1
-sizeChunk=$2
-lumiChunk=$3
 
-workdir="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob"
-filedir="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/ZCountHarvest/CloneJob/TestResult/TestDec05"
-subdir=${sizeChunk}-${lumiChunk}invpb
+workdir="/afs/cern.ch/work/d/dwalter/CMSSW_9_2_8/src/ZCounting"
 
-CMSSW_BASE="/afs/cern.ch/work/x/xniu/public/CMSSW_9_2_8/src/"
+CMSSW_BASE="/afs/cern.ch/work/d/dwalter/CMSSW_9_2_8/src/"
 TOP="$PWD"
 
 cd $CMSSW_BASE
@@ -16,12 +13,9 @@ cd $TOP
 
 cp -r ${workdir}/Utils $TOP
 cp -r ${workdir}/.rootlogon.C $TOP
-cp ${workdir}/calculateDataEfficiency_v3.C $TOP
+cp ${workdir}/calculateDataEfficiency.C $TOP
 cp ${workdir}/calculateZEfficiency.C $TOP
-cp ${workdir}/testZCounting2.py $TOP
+cp ${workdir}/ZCounting.py $TOP
 
-python testZCounting2.py -b $runNum -e $(($runNum + 1)) -s $sizeChunk -l $lumiChunk -m True -u True
+python ZCounting.py -b $runNum -e $(($runNum + 1)) -m True -l $2 -s $3 -d $4 -f $5 -g $6 -t $7 -a $8 -x $9  
 
-cp -r $TOP/Run${runNum} ${filedir}/${subdir}
-cp $TOP/csvfile${runNum}.csv ${filedir}/${subdir}
-cp $TOP/effcsvfile${runNum}.csv ${filedir}/${subdir}

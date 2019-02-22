@@ -25,20 +25,18 @@ parser = argparse.ArgumentParser()
 ZeffUnc=0.03
 
 parser.add_argument("-c", "--cms", default="nothing", type=string, help="give the CMS csv as input")
-parser.add_argument("-f", "--fill", default='6252', type=str, help="give fill numbers")
-parser.add_argument("-s", "--saveDir", default='./', type=str, help="give fill numbers")
+parser.add_argument("-s", "--saveDir", default='./', type=str, help="give output dir")
 args = parser.parse_args()
 
 if args.cms=="nothing":
 	print "please provide cms input files"
 	sys.exit()
 
+
 print args.cms
-#print args.atlas
 
 data=pandas.read_csv(str(args.cms), sep=',',low_memory=False)#, skiprows=[1,2,3,4,5])
 #print data.axes
-#pdb.set_trace()
 #print data.keys
 fills=data.drop_duplicates('fill')['fill'].tolist()
 zcountlist=data.groupby('fill')['delZCount'].apply(list)
@@ -50,12 +48,8 @@ zcountl=array('d')
 timel=array('d')
 fil=fills
 
-#import pdb
-#pdb.set_trace()
 
-#atlasfile=open(str(args.atlas))
 cmsfile=open(str(args.cms))
-fillsx=args.fill.split(",")
 suffix=""
 
 print "Fills being processed: "+str(fills)
@@ -67,7 +61,6 @@ else:
 print suffix
 
 linescms=cmsfile.readlines()
-#linesatlas=atlasfile.readlines()
 
 
 metaFills=array('d')
@@ -85,7 +78,7 @@ metazcountsoverlumi=array('d')
 #print timelist
 
 for fill in fills:
-	print("zcountlist[fill]", zcountlist[fill])
+	#print("zcountlist[fill]", zcountlist[fill])
 	zcountl.append(sum(zcountlist[fill]))
 	zcountsAccu=zcountsAccu+sum(zcountlist[fill])
 	metazcountsAccu.append(zcountsAccu)
@@ -161,7 +154,7 @@ for fill in fills:
 	graph_cmsinstLum.SetName("graph_cmsinstLum")
 	graph_cmsinstLum.SetMarkerStyle(34)
 	graph_cmsinstLum.SetMarkerColor(kRed)
-	graph_cmsinstLum.SetMarkerSize(2)
+        graph_cmsinstLum.SetMarkerSize(2)
 
 	graph_cmsXsec=ROOT.TGraph(k,cmsTimes,cmsXsec)
 	graph_cmsXsec.SetName("graph_cmsXsec")
@@ -239,7 +232,7 @@ for fill in fills:
 	graph_cmsXsec2.GetXaxis().SetTitleOffset(0.72)
 	graph_cmsXsec2.GetXaxis().SetLabelSize(0.05)
 	graph_cmsXsec2.GetYaxis().SetLabelSize(0.05)	
-	graph_cmsXsec2.GetYaxis().SetRangeUser(0.9*600,1.1*600)
+	#graph_cmsXsec2.GetYaxis().SetRangeUser(600,700)
 
 	c4=ROOT.TCanvas("c4","c4",1000,600)
 	c4.SetGrid()	
@@ -251,7 +244,7 @@ for fill in fills:
 	text=ROOT.TText(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 	text.SetNDC()
 	text.Draw()
-	text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>30 GeV, |#eta(#mu)|<2.4}")
+	text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>27 GeV, |#eta(#mu)|<2.4}")
 	text2.SetNDC()
 	text2.SetTextSize(0.04)
 	text2.Draw()
@@ -283,6 +276,7 @@ graph_metacmsXsec.GetXaxis().SetTitleOffset(0.72)
 graph_metacmsXsec.GetYaxis().SetTitleOffset(0.8)
 graph_metacmsXsec.GetXaxis().SetLabelSize(0.05)
 graph_metacmsXsec.GetYaxis().SetLabelSize(0.05)
+#graph_metacmsXsec.GetYaxis().SetRangeUser(600,700)
 
 multMetaGraphXsec.Add(graph_metacmsXsec)
 
@@ -291,19 +285,21 @@ c3.SetGrid()
 
 graph_metacmsXsec.Draw("AP")
 
+
+
 print(suffix)
 
-if suffix=="Barrel":
-	graph_metacmsXsec.GetYaxis().SetRangeUser(0.9*600,1.1*600)
-if suffix=="Inclusive":
-	print("set y axis range...")
-	graph_metacmsXsec.GetYaxis().SetRangeUser(0.9*600,1.1*600)
+#if suffix=="Barrel":
+#	graph_metacmsXsec.GetYaxis().SetRangeUser(600,700)
+#if suffix=="Inclusive":
+#	print("set y axis range...")
+#	graph_metacmsXsec.GetYaxis().SetRangeUser(600,700)
 
 
 text=ROOT.TLatex(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 text.SetNDC()
 text.Draw()
-text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>30 GeV, |#eta(#mu)|<2.4}")
+text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>27 GeV, |#eta(#mu)|<2.4}")
 text2.SetNDC()
 text2.SetTextSize(0.04)
 text2.Draw()
@@ -311,8 +307,8 @@ c3.SaveAs(args.saveDir+"summaryZStability"+suffix+".png")
 c3.Close()
 
 graph_zcount=ROOT.TGraph(len(metaFills),metaFills,zcountl)
-print("metaFills= ",metaFills)
-print("zcount= ", zcountl)
+#print("metaFills= ",metaFills)
+#print("zcount= ", zcountl)
 graph_zcount.SetName("graph_zcount")
 graph_zcount.SetMarkerStyle(22)
 graph_zcount.SetMarkerColor(kOrange+8)
@@ -337,11 +333,11 @@ graph_zcount.Draw("AP")
 text=ROOT.TLatex(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 text.SetNDC()
 text.Draw()
-text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>30 GeV, |#eta(#mu)|<2.4}")
+text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>27 GeV, |#eta(#mu)|<2.4}")
 text2.SetNDC()
 text2.SetTextSize(0.04)
 text2.Draw()
-text3=ROOT.TLatex(0.7,0.33,"#color[4]{HLT_IsoMu27_v*}")
+text3=ROOT.TLatex(0.7,0.33,"#color[4]{IsoMu24_v*}")
 text3.SetNDC()
 text3.SetTextSize(0.04)
 text3.Draw()
@@ -349,8 +345,8 @@ c5.SaveAs(args.saveDir+"ZCountPerFill"+suffix+".png")
 c5.Close()
 
 graph_zcountA=ROOT.TGraph(len(metaFills),timel,metazcountsAccu)
-print("timel=",timel)
-print("metazcountsAccu= " ,metazcountsAccu)
+#print("timel=",timel)
+#print("metazcountsAccu= " ,metazcountsAccu)
 graph_zcountA.SetName("graph_zcountAccu")
 graph_zcountA.SetMarkerStyle(22)
 graph_zcountA.SetMarkerColor(kOrange+8)
@@ -377,11 +373,11 @@ graph_zcountA.Draw("AP")
 text=ROOT.TLatex(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 text.SetNDC()
 text.Draw()
-text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>30 GeV, |#eta(#mu)|<2.4}")
+text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>27 GeV, |#eta(#mu)|<2.4}")
 text2.SetNDC()
 text2.SetTextSize(0.04)
 text2.Draw()
-text3=ROOT.TLatex(0.7,0.33,"#color[4]{HLT_IsoMu27_v*}")
+text3=ROOT.TLatex(0.7,0.33,"#color[4]{IsoMu24_v*}")
 text3.SetNDC()
 text3.SetTextSize(0.04)
 text3.Draw()
