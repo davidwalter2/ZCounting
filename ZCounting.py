@@ -9,6 +9,7 @@ from operator import truediv
 import random
 import math
 import pandas
+import numpy as np
 import os.path
 import glob
 import logging as log
@@ -355,6 +356,18 @@ for run_i in range(0,len(fillRunlist)):
         ZBBEff=(StaeffB_i*StaeffB_i * SITeffB_i*SITeffB_i * (1-(1-HLTeffB_i)*(1-HLTeffB_i)))
         ZBEEff=(StaeffB_i*StaeffE_i * SITeffB_i*SITeffE_i * (1-(1-HLTeffB_i)*(1-HLTeffE_i)))
         ZEEEff=(StaeffE_i*StaeffE_i * SITeffE_i*SITeffE_i * (1-(1-HLTeffE_i)*(1-HLTeffE_i)))
+
+        #Uncertainties (low,high) from error propagation 
+        ZBBEffErr = [0.,0.]
+        ZBEEffErr = [0.,0.]
+        ZEEEffErr = [0.,0.]
+        for i in (1,2):
+            ZBBEffErr[i-1] = 2 * ZBBEff * np.sqrt( (StaeffresB_i[i]/StaeffB_i)**2 + (SITeffresB_i[i]/SITeffB_i)**2 + ((1-HLTeffB_i)/(1-(1-HLTeffB_i)**2)*HLTeffresB_i[i])**2 )
+            ZEEEffErr[i-1] = 2 * ZEEEff * np.sqrt( (StaeffresE_i[i]/StaeffE_i)**2 + (SITeffresE_i[i]/SITeffE_i)**2 + ((1-HLTeffE_i)/(1-(1-HLTeffE_i)**2)*HLTeffresE_i[i])**2 )
+            ZBEEffErr[i-1] = ZBEEff * np.sqrt( (StaeffresB_i[i]/StaeffB_i)**2 + (StaeffresE_i[i]/StaeffE_i)**2 + (SITeffresB_i[i]/SITeffB_i)**2 + (SITeffresE_i[i]/SITeffE_i)**2 + ((1-HLTeffE_i)/(1-(1-HLTeffB_i)*(1-HLTeffE_i))*HLTeffresB_i[i])**2 + ((1-HLTeffB_i)/(1-(1-HLTeffB_i)*(1-HLTeffE_i))*HLTeffresE_i[i])**2 )
+
+        import pdb
+        pdb.set_trace()
 
 	#ZtoMuMu efficiency correction as a parametrized function of pile-up
         ZBBEffCorr = f_ZBBEffCorr(avgPileup_i)
