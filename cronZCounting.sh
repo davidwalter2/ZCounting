@@ -4,4 +4,4 @@ cd $cmsswRel
 source /cvmfs/cms.cern.ch/cmsset_default.sh
 eval `scramv1 runtime -sh`
 cd ZCounting
-python testZCounting4.py --microBarn True --beginRun 315259 --parametrizeType 2
+python ZCounting.py --beginRun 315259 --parametrizeType 2

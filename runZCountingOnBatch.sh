@@ -17,5 +17,5 @@ cp ${workdir}/calculateDataEfficiency.C $TOP
 cp ${workdir}/calculateZEfficiency.C $TOP
 cp ${workdir}/ZCounting.py $TOP
 
-python ZCounting.py -b $runNum -e $(($runNum + 1)) -m True -l $2 -s $3 -d $4 -f $5 -g $6 -t $7 -a $8 -x $9  
+python ZCounting.py -b $runNum -e $(($runNum + 1)) -d $2 -f $3 -g $4 -t $5 -a $6 -x $7  
 

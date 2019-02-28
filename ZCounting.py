@@ -4,7 +4,6 @@ from ROOT import TGraphAsymmErrors
 from ROOT import TGraphErrors
 from ROOT import TColor
 from array import array
-from ROOT import *
 from operator import truediv
 import random
 import math
@@ -14,14 +13,12 @@ import os.path
 import glob
 import logging as log
 import argparse
+import pdb
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-b","--beginRun",help="first run to analyze [%default]",default=299918)
 parser.add_argument("-e","--endRun",help="analyze stops when comes to this run [%default]",default=1000000)
-parser.add_argument("-m","--mergeStat",help="option to switch on merging: measurement less than lumiChunk to be merged with next measurement [%default]",default=True)
-parser.add_argument("-l","--lumiChunk",help="define statistics: measurement less than this to be merged with next measurement [%default]",default=10.)
 parser.add_argument("-p","--parametrizeType",help="define parametrization: 1 is for extrapolation, 2 is for piece-wise function",default=1)
-parser.add_argument("-s","--sizeChunk",help="define granularity: numbers of LS to be merged for one measurement [%default]",default=50)
 parser.add_argument("-v","--verbose",help="increase logging level from INFO to DEBUG",default=False,action="store_true")
 parser.add_argument("-c","--writeSummaryCSV",help="produce merged CSV with all runs",default=True)
 parser.add_argument("-d","--dirDQM",help="Directory to the input root files from the DQM Offline module",default="/afs/cern.ch/user/d/dwalter/cernBox/www/ZCounting/DQM-Offline-2018/")
@@ -45,11 +42,8 @@ inFileList=glob.glob(args.ByLsCSV)
 inFileList.sort(key=os.path.getmtime)
 inFile=inFileList[-1]
 print "The brilcalc csv file: "+str(inFile)
-#inFile = '/afs/cern.ch/work/d/dwalter/CMSSW_9_2_8/src/ZCounting/ByLs_Full2018_HLT_IsoMu24.csv'
 
-#Data inputs from offlineDQM 
-#eosDir="/eos/cms/store/group/comm_luminosity/ZCounting/DQMFiles2018/cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2018/SingleMuon/"
-eosDir= args.dirDQM # "/afs/cern.ch/user/d/dwalter/cernBox/www/ZCounting/DQM-Offline-2018/"
+eosDir= args.dirDQM 
 
 #MC inputs: to build MC*Gaussian template for efficiency fitting
 
@@ -62,16 +56,15 @@ mcShapeSubDir= args.dirMCShape# "MCFiles/92X_norw_IsoMu27_noIso/"
 secPerLS=float(23.3)
 currentYear=2018
 maximumLS=2500
-chunkSize=int(args.sizeChunk)
-lumiChunk=float(args.lumiChunk)
+ZperMeasurement=10000 #required number of Z per measurement
 staFitChi2Th=2.      #threshold on chi2 to trigger protection mechanism
 staFitEffThHi=0.999  #threshold on eff. to trigger protection mechanism
 staFitEffThLo=0.95   #threshold on eff. to trigger protection mechanism
 
-Zfp_rate = 0.01		#False positive rate of Z: background events counted as Z
-ZBB_rate = 0.077904 	#Fraction of Z events where both muons are in barrel region
-ZBE_rate = 0.117200	# barrel and endcap
-ZEE_rate = 0.105541	# both endcap
+ZfpRate = 0.01		#False positive rate of Z: background events counted as Z
+ZBBRate = 0.077904 	#Fraction of Z events where both muons are in barrel region
+ZBERate = 0.117200	# barrel and endcap
+ZEERate = 0.105541	# both endcap
 
 ########################################
 
@@ -104,7 +97,6 @@ f_ZEEEffCorr = fGen(0.0114659 ,0.00048351 , 0.0160629 ,0.000296308,  0.00132398,
 ########################################
 
 #log.info("Loading C marco...")	#I think we don't need this
-#ROOT.gROOT.Macro(os.path.expanduser(os.path.dirname(os.path.realpath(__file__))+'.rootlogon.C' ) )
 ROOT.gROOT.LoadMacro(os.path.dirname(os.path.realpath(__file__))+"/calculateDataEfficiency.C") #load function getZyield(...) and calculateDataEfficiency(...)
 
 #turn off graphical output on screen
@@ -116,43 +108,29 @@ lumiLines=lumiFile.readlines()
 data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-11,len(lumiLines)-10,len(lumiLines)-9,len(lumiLines)-8,len(lumiLines)-7,len(lumiLines)-6,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
 log.debug("%s",data.axes)
 log.info("Loading input byls csv DONE...")
+#formatting the csv
+data['fill'] = pandas.to_numeric(data['#run:fill'].str.split(':',expand=True)[1])
+data['run'] = pandas.to_numeric(data['#run:fill'].str.split(':',expand=True)[0])
+data['ls'] = pandas.to_numeric(data['ls'].str.split(':',expand=True)[0])
+data = data.drop(['#run:fill','hltpath','source'],axis=1)
 
-# TAKE INPUT CSV FILE AND STRUCTURE PER-RUN BASIS, THEN CREATE LIST OF LUMI AND LS`s PER RUN
-LSlist=data.groupby('#run:fill')['ls'].apply(list)
+if 'delivered(/ub)' in data.columns.tolist():      #convert to /pb
+    data['delivered(/ub)'] = data['delivered(/ub)'].apply(lambda x:x / 1000000.)
+    data['recorded(/ub)'] = data['recorded(/ub)'].apply(lambda x:x / 1000000.)
+    data = data.rename(index=str, columns={'delivered(/ub)':'delivered(/pb)', 'recorded(/ub)':'recorded(/pb)' })
 
-is_microBarn = 'delivered(/ub)' in data.columns.tolist()
-
-if is_microBarn: 
-    recLumiList=data.groupby('#run:fill')['recorded(/ub)'].apply(list)
-    delLumiList=data.groupby('#run:fill')['delivered(/ub)'].apply(list)
-    lumiChunk = lumiChunk*1000000.
-else:
-    recLumiList=data.groupby('#run:fill')['recorded(/pb)'].apply(list)
-    delLumiList=data.groupby('#run:fill')['delivered(/pb)'].apply(list)
-
-avgpuList=data.groupby('#run:fill')['avgpu'].apply(list)
-timeList=data.groupby('#run:fill')['time'].apply(list)
-
-for i in range(0,len(LSlist)):	
-	#print LSlist
-	LSlist[i]=[int(x.split(':')[0]) for x in LSlist[i]]
-fillRunlist=data.drop_duplicates('#run:fill')['#run:fill'].tolist()
-
-log.debug("%s",fillRunlist)
-log.debug("length LS list: %i",len(LSlist))
-log.debug("length Run list: %i",len(fillRunlist))
 
 log.info("Looping over runs...")
-for run_i in range(0,len(fillRunlist)):
+for run in data.drop_duplicates('run')['run'].values:
 
-    run=int(fillRunlist[run_i].split(':')[0])
-    fill=int(fillRunlist[run_i].split(':')[1])
+    data_run = data.loc[data['run'] == run]
+
+    fill = data_run.drop_duplicates('fill')['fill'].values[0]
+    LSlist = data_run['ls'].values.tolist()
 
     if run<int(args.beginRun) or run>=int(args.endRun):
         continue
-    #if run<299918:#Z Coungig module is enabled since this run 
-    #	continue
-
+    
     #check if run was processed already
     processedRun = glob.glob(args.dirEff+'Run'+str(run))
     if len(processedRun)>0:
@@ -165,75 +143,6 @@ for run_i in range(0,len(fillRunlist)):
     log.info("===Running Run %i",run)
     log.info("===Running Fill %i",fill)
         
-    LSchunks 	= [LSlist[run_i][x:x+chunkSize] for x in range(0, len(LSlist[run_i]), chunkSize)]
-    Del_chunks  = [delLumiList[run_i][x:x+chunkSize] for x in range(0, len(delLumiList[run_i]), chunkSize)]
-    Rec_chunks  = [recLumiList[run_i][x:x+chunkSize] for x in range(0, len(recLumiList[run_i]), chunkSize)]
-    Avgpu_chunks = [avgpuList[run_i][x:x+chunkSize] for x in range(0, len(avgpuList[run_i]), chunkSize)]
-    time_chunks = [timeList[run_i][x:x+chunkSize] for x in range(0, len(timeList[run_i]), chunkSize)]
-
-    log.debug("===Pre-looping over LSchunks to fit current 2500 LS budget...")
-    log.debug("===LSchunk lists before truncate: %s",LSchunks)
-    for chunk_j in range(0,len(LSchunks)):
-        if float(LSchunks[chunk_j][-1]) > maximumLS:
-            log.warning("======Losing data after LS %i for Run%i",maximumLS,run)
-            while LSchunks[chunk_j][-1] > maximumLS:
-                del LSchunks[chunk_j][-1]
-                del Del_chunks[chunk_j][-1]
-                del Rec_chunks[chunk_j][-1]
-                del Avgpu_chunks[chunk_j][-1]
-                del time_chunks[chunk_j][-1]
-            for chunk_k in range(chunk_j+1, len(LSchunks)):
-                del LSchunks[-1] 
-                del Del_chunks[-1]
-                del Rec_chunks[-1]
-                del Avgpu_chunks[-1]
-                del time_chunks[-1]
-            break
-    log.debug("===LSchunk lists after truncate: %s",LSchunks)
-
-    if args.mergeStat:
-        log.debug("===Pre-looping over LSchunks to merge stat...")
-        log.debug("===LSchunk lists before merge: %s",LSchunks)
-
-  
-        for chunk_i in range(0,len(LSchunks)):
-            log.debug("======current ivalue = %i",chunk_i)
-            log.debug("======current length = %i",len(LSchunks))
-
-            if chunk_i == len(LSchunks):
-                break
-
-            log.debug("======current lumi   = %f",sum(Rec_chunks[chunk_i]))
-
-            chunk_j = chunk_i
-            currentLumi = sum(Rec_chunks[chunk_j])
-            if currentLumi < lumiChunk:
-                while currentLumi < lumiChunk and chunk_j < len(LSchunks)-1:
-                    log.debug("========= current jvalue = %i",chunk_j)
-                    log.debug("========= index to merge = %i",chunk_j+1)
-                    log.debug("========= lumi  to merge = %f",sum(Rec_chunks[chunk_j+1]))
-                    log.debug("========= lumi  total    = %f",currentLumi + sum(Rec_chunks[chunk_j+1]))
-
-                    currentLumi += sum(Rec_chunks[chunk_j+1])
-		    LSchunks[chunk_j]     = LSchunks[chunk_j]     + LSchunks[chunk_j+1]
-                    Del_chunks[chunk_j]   = Del_chunks[chunk_j]   + Del_chunks[chunk_j+1]
-                    Rec_chunks[chunk_j]   = Rec_chunks[chunk_j]   + Rec_chunks[chunk_j+1]
-                    Avgpu_chunks[chunk_j] = Avgpu_chunks[chunk_j] + Avgpu_chunks[chunk_j+1]
-                    time_chunks[chunk_j]  = time_chunks[chunk_j]  + time_chunks[chunk_j+1]
-
-                    log.debug("========= merged LSchunk =%s",LSchunks[chunk_j])
-
-                    del LSchunks[chunk_j+1]
-                    del Del_chunks[chunk_j+1]
-                    del Rec_chunks[chunk_j+1]
-                    del Avgpu_chunks[chunk_j+1]
-                    del time_chunks[chunk_j+1]
-            else:
-                log.debug("====== not merging index "),str(chunk_i)
-
-    if args.mergeStat:
-        log.debug("===LSchunk lists after merge: %s",LSchunks)
-
     log.debug("===Setting up arrays for output csv...")
     fillarray=array('d')
     beginTime=[]
@@ -277,153 +186,149 @@ for run_i in range(0,len(fillRunlist)):
     if not len(eosFileList)>0:
 	print "The file does not yet exist for run: "+str(run)
 	continue
-
     else:
 	eosFile=eosFileList[0]
 
     print "The file exists: "+str(eosFile)+" for run  "+str(run)
     log.info("===Looping over LSchunks...")
 
-    for chunk_i in range(0,len(LSchunks)):
-        nMeasurements=nMeasurements+1
-
-        log.info("======Running LSchunk No.%i",chunk_i)
-        log.debug("======LS list: %s",LSchunks[chunk_i])
-
-	recLumi_i = sum(Rec_chunks[chunk_i])
-	delLumi_i = sum(Del_chunks[chunk_i])	
-        deadtime_i = recLumi_i/delLumi_i
-
-        if is_microBarn:
-            recLumi_i = recLumi_i/1000000.
-            delLumi_i = delLumi_i/1000000.
-
-        log.debug("======RecLumi: %f",recLumi_i)
-        log.debug("======DelLumi: %f",delLumi_i)
-        log.debug("======DeadTime: %f",deadtime_i)
-
-
-	avgPileup_i = sum(Avgpu_chunks[chunk_i])
-	avgPileup_i = avgPileup_i/len(Avgpu_chunks[chunk_i])
-        log.debug("======avgPU: %f",avgPileup_i)
-
-	datestamp_low=time_chunks[chunk_i][0].split(" ")
-	date_low=ROOT.TDatime(currentYear,int(datestamp_low[0].split("/")[0]),int(datestamp_low[0].split("/")[1]),int(datestamp_low[1].split(":")[0]),int(datestamp_low[1].split(":")[1]),int(datestamp_low[1].split(":")[2]))
-        datestamp_up=time_chunks[chunk_i][-1].split(" ")
-	date_up=ROOT.TDatime(currentYear,int(datestamp_up[0].split("/")[0]),int(datestamp_up[0].split("/")[1]),int(datestamp_up[1].split(":")[0]),int(datestamp_up[1].split(":")[1]),int(datestamp_up[1].split(":")[2]))
-        timeWindow_i=(date_up.Convert()-date_low.Convert())+secPerLS
-        log.debug("======time_chunks: %s",time_chunks[chunk_i])
-        log.debug("======beginTime: %s",date_low.Convert())
-        log.debug("======endTime: %s",date_up.Convert())
-        log.debug("======timeWindow: %f",timeWindow_i)
-
+    while len(LSlist) > 0: #begin next measurement "m"
         log.debug("Openning DQMIO.root file: %s", eosFile)
-        HLTeffresB_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",0,0,0,0,0,recLumi_i)
-        HLTeffresE_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"HLT",1,0,0,0,0,recLumi_i)
-        SITeffresB_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",0,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        SITeffresE_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"SIT",1,1,1,1,1,recLumi_i)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresB_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",0,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
-        StaeffresE_i=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),chunk_i,LSchunks[chunk_i][0],LSchunks[chunk_i][-1],avgPileup_i,"Sta",1,2,2,2,2,recLumi_i,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+
+        f1 = ROOT.TFile(eosFile)
+        h_yield_Z = f1.Get("DQMData/Run "+str(run)+"/ZCounting/Run summary/Histograms/h_yield_Z")
+        h_npv = f1.Get("DQMData/Run "+str(run)+"/ZCounting/Run summary/Histograms/h_npv").ProjectionX()
+        # produce goodLSlist with ls that are used for one measurement
+        # Each measurement should have more than 5000 Z's, If the last measurement is smaller, combine it
+        # Note: lumisection 'n' is stored in histogram bin 'n+1'
+        #   therefore we have to add 1 to the lumisection in question
+        Zyield_m = 0
+        goodLSlist = []
+        while Zyield_m < ZperMeasurement or (len(LSlist) > 0 and h_yield_Z.Integral(LSlist[0]+1,LSlist[-1]+1) < ZperMeasurement): 
+            if len(LSlist) < 1:
+                print("No more lumi sections in current run")
+                break
+            if LSlist[0] > h_yield_Z.GetNbinsX():
+                log.error("======Lumi Section not stored in root file")
+                break
+            if h_npv.GetBinContent(LSlist[0]+1) > 0:
+                Zyield_m += h_yield_Z.GetBinContent(LSlist[0]+1)
+                goodLSlist.append(LSlist[0])
+            del LSlist[0]
+
+        avgpu_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['avgpu'].values)/len(goodLSlist)
+        recLumi_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['recorded(/pb)'].values)
+        delLumi_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['delivered(/pb)'].values)
+        deadtime_m = recLumi_m/delLumi_m
+        timeWindow_m = len(goodLSlist) * secPerLS
+
+        datestampLow_m = data_run.loc[data_run['ls'] == goodLSlist[0]]['time'].values[0].split(" ")
+        datestampUp_m = data_run.loc[data_run['ls'] == goodLSlist[-1]]['time'].values[0].split(" ")
+
+	dateLow_m=ROOT.TDatime(currentYear,int(datestampLow_m[0].split("/")[0]),int(datestampLow_m[0].split("/")[1]),int(datestampLow_m[1].split(":")[0]),int(datestampLow_m[1].split(":")[1]),int(datestampLow_m[1].split(":")[2]))
+	dateUp_m=ROOT.TDatime(currentYear,int(datestampUp_m[0].split("/")[0]),int(datestampUp_m[0].split("/")[1]),int(datestampUp_m[1].split(":")[0]),int(datestampUp_m[1].split(":")[1]),int(datestampUp_m[1].split(":")[2]))
         
-        Zyield_i=ROOT.getZyield(str(eosFile),"h_yield_Z",str(run),LSchunks[chunk_i][0],LSchunks[chunk_i][-1])
-        Zyield_BB_i = ROOT.getZyield(str(eosFile),"h_yieldBB_Z",str(run),LSchunks[chunk_i][0],LSchunks[chunk_i][-1])
-        Zyield_EE_i = ROOT.getZyield(str(eosFile),"h_yieldEE_Z",str(run),LSchunks[chunk_i][0],LSchunks[chunk_i][-1])
+        log.debug("======beginTime: %s",dateLow_m.Convert())
+        log.debug("======endTime: %s",dateUp_m.Convert())
+        log.debug("======timeWindow: %f",timeWindow_m)
 
-        HLTeffB_i = HLTeffresB_i[0]
-        HLTeffE_i = HLTeffresE_i[0]
-        SITeffB_i = SITeffresB_i[0]
-        SITeffE_i = SITeffresE_i[0]
-        StaeffB_i = StaeffresB_i[0]
-        StaeffE_i = StaeffresE_i[0]
+        HLTeffresB_m=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),nMeasurements,goodLSlist[0]+1,goodLSlist[-1]+1,avgpu_m,"HLT",0,0,0,0,0,recLumi_m)
+        HLTeffresE_m=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),nMeasurements,goodLSlist[0]+1,goodLSlist[-1]+1,avgpu_m,"HLT",1,0,0,0,0,recLumi_m)
+        SITeffresB_m=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),nMeasurements,goodLSlist[0]+1,goodLSlist[-1]+1,avgpu_m,"SIT",0,1,1,1,1,recLumi_m)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        SITeffresE_m=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),nMeasurements,goodLSlist[0]+1,goodLSlist[-1]+1,avgpu_m,"SIT",1,1,1,1,1,recLumi_m)#,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresB_m=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),nMeasurements,goodLSlist[0]+1,goodLSlist[-1]+1,avgpu_m,"Sta",0,2,2,2,2,recLumi_m,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        StaeffresE_m=ROOT.calculateDataEfficiency(str(eosFile),args.dirEff,str(run),nMeasurements,goodLSlist[0]+1,goodLSlist[-1]+1,avgpu_m,"Sta",1,2,2,2,2,recLumi_m,mcDir+mcShapeSubDir+"MuStaEff/MC/probes.root",mcDir)
+        
+        #Zyield_m=ROOT.getZyield(str(eosFile),"h_yield_Z",str(run),LSchunks[chunk_m][0],LSchunks[chunk_m][-1])
+        #Zyield_BB_m = ROOT.getZyield(str(eosFile),"h_yieldBB_Z",str(run),LSchunks[chunk_m][0],LSchunks[chunk_m][-1])
+        #Zyield_EE_m = ROOT.getZyield(str(eosFile),"h_yieldEE_Z",str(run),LSchunks[chunk_m][0],LSchunks[chunk_m][-1])
 
-        if StaeffresB_i[3] > staFitChi2Th or StaeffresB_i[4] > staFitChi2Th or StaeffB_i >= staFitEffThHi or StaeffB_i <= staFitEffThLo:
-            StaeffB_i = prevStaEffB
-            log.warning("======Bad fit might happen, origin eff = %f, with chi2 = %f, %f",StaeffresB_i[0],StaeffresB_i[3],StaeffresB_i[4])
+        HLTeffB_m = HLTeffresB_m[0]
+        HLTeffE_m = HLTeffresE_m[0]
+        SITeffB_m = SITeffresB_m[0]
+        SITeffE_m = SITeffresE_m[0]
+        StaeffB_m = StaeffresB_m[0]
+        StaeffE_m = StaeffresE_m[0]
+
+        if StaeffresB_m[3] > staFitChi2Th or StaeffresB_m[4] > staFitChi2Th or StaeffB_m >= staFitEffThHi or StaeffB_m <= staFitEffThLo:
+            StaeffB_m = prevStaEffB
+            log.warning("======Bad fit might happen, origin eff = %f, with chi2 = %f, %f",StaeffresB_m[0],StaeffresB_m[3],StaeffresB_m[4])
         else:
-            prevStaEffB = StaeffB_i
+            prevStaEffB = StaeffB_m
 
-        if StaeffresE_i[3] > staFitChi2Th or StaeffresE_i[4] > staFitChi2Th or StaeffE_i >= staFitEffThHi or StaeffE_i <= staFitEffThLo:
-            StaeffE_i = prevStaEffE
-            log.warning("======Bad fit might happen, origin eff = %f, with chi2 = %f, %f",StaeffresE_i[0],StaeffresE_i[3],StaeffresE_i[4])
+        if StaeffresE_m[3] > staFitChi2Th or StaeffresE_m[4] > staFitChi2Th or StaeffE_m >= staFitEffThHi or StaeffE_m <= staFitEffThLo:
+            StaeffE_m = prevStaEffE
+            log.warning("======Bad fit might happen, origin eff = %f, with chi2 = %f, %f",StaeffresE_m[0],StaeffresE_m[3],StaeffresE_m[4])
         else:
-            prevStaEffE = StaeffE_i
+            prevStaEffE = StaeffE_m
 
 
-        log.debug("======perMuonEff: %f, %f ,%f, %f, %f, %f",HLTeffB_i,HLTeffE_i,SITeffB_i,SITeffE_i,StaeffB_i,StaeffE_i)
-        log.debug("======ZRawYield: %f",Zyield_i)
+        log.debug("======perMuonEff: %f, %f ,%f, %f, %f, %f",HLTeffB_m,HLTeffE_m,SITeffB_m,SITeffE_m,StaeffB_m,StaeffE_m)
+        log.debug("======ZRawYield: %f",Zyield_m)
 
 	#ZtoMuMu efficiency purely from data
-        ZBBEff=(StaeffB_i*StaeffB_i * SITeffB_i*SITeffB_i * (1-(1-HLTeffB_i)*(1-HLTeffB_i)))
-        ZBEEff=(StaeffB_i*StaeffE_i * SITeffB_i*SITeffE_i * (1-(1-HLTeffB_i)*(1-HLTeffE_i)))
-        ZEEEff=(StaeffE_i*StaeffE_i * SITeffE_i*SITeffE_i * (1-(1-HLTeffE_i)*(1-HLTeffE_i)))
+        ZBBEff=(StaeffB_m*StaeffB_m * SITeffB_m*SITeffB_m * (1-(1-HLTeffB_m)*(1-HLTeffB_m)))
+        ZBEEff=(StaeffB_m*StaeffE_m * SITeffB_m*SITeffE_m * (1-(1-HLTeffB_m)*(1-HLTeffE_m)))
+        ZEEEff=(StaeffE_m*StaeffE_m * SITeffE_m*SITeffE_m * (1-(1-HLTeffE_m)*(1-HLTeffE_m)))
 
-        #Uncertainties (low,high) from error propagation 
+        #Statistic Uncertainties (low,high) error propagation 
         ZBBEffErr = [0.,0.]
         ZBEEffErr = [0.,0.]
         ZEEEffErr = [0.,0.]
         for i in (1,2):
-            ZBBEffErr[i-1] = 2 * ZBBEff * np.sqrt( (StaeffresB_i[i]/StaeffB_i)**2 + (SITeffresB_i[i]/SITeffB_i)**2 + ((1-HLTeffB_i)/(1-(1-HLTeffB_i)**2)*HLTeffresB_i[i])**2 )
-            ZEEEffErr[i-1] = 2 * ZEEEff * np.sqrt( (StaeffresE_i[i]/StaeffE_i)**2 + (SITeffresE_i[i]/SITeffE_i)**2 + ((1-HLTeffE_i)/(1-(1-HLTeffE_i)**2)*HLTeffresE_i[i])**2 )
-            ZBEEffErr[i-1] = ZBEEff * np.sqrt( (StaeffresB_i[i]/StaeffB_i)**2 + (StaeffresE_i[i]/StaeffE_i)**2 + (SITeffresB_i[i]/SITeffB_i)**2 + (SITeffresE_i[i]/SITeffE_i)**2 + ((1-HLTeffE_i)/(1-(1-HLTeffB_i)*(1-HLTeffE_i))*HLTeffresB_i[i])**2 + ((1-HLTeffB_i)/(1-(1-HLTeffB_i)*(1-HLTeffE_i))*HLTeffresE_i[i])**2 )
-
-        import pdb
-        pdb.set_trace()
+            ZBBEffErr[i-1] = 2 * ZBBEff * np.sqrt( (StaeffresB_m[i]/StaeffB_m)**2 + (SITeffresB_m[i]/SITeffB_m)**2 + ((1-HLTeffB_m)/(1-(1-HLTeffB_m)**2)*HLTeffresB_m[i])**2 )
+            ZEEEffErr[i-1] = 2 * ZEEEff * np.sqrt( (StaeffresE_m[i]/StaeffE_m)**2 + (SITeffresE_m[i]/SITeffE_m)**2 + ((1-HLTeffE_m)/(1-(1-HLTeffE_m)**2)*HLTeffresE_m[i])**2 )
+            ZBEEffErr[i-1] = ZBEEff * np.sqrt( (StaeffresB_m[i]/StaeffB_m)**2 + (StaeffresE_m[i]/StaeffE_m)**2 + (SITeffresB_m[i]/SITeffB_m)**2 + (SITeffresE_m[i]/SITeffE_m)**2 + ((1-HLTeffE_m)/(1-(1-HLTeffB_m)*(1-HLTeffE_m))*HLTeffresB_m[i])**2 + ((1-HLTeffB_m)/(1-(1-HLTeffB_m)*(1-HLTeffE_m))*HLTeffresE_m[i])**2 )
 
 	#ZtoMuMu efficiency correction as a parametrized function of pile-up
-        ZBBEffCorr = f_ZBBEffCorr(avgPileup_i)
-	ZBEEffCorr = f_ZBEEffCorr(avgPileup_i)
-	ZEEEffCorr = f_ZEEEffCorr(avgPileup_i)
+        ZBBEffCorr = f_ZBBEffCorr(avgpu_m)
+	ZBEEffCorr = f_ZBEEffCorr(avgpu_m)
+	ZEEEffCorr = f_ZEEEffCorr(avgpu_m)
 
 	#ZtoMuMu efficiency after correction 
 	ZMCEffBB = ZBBEff - ZBBEffCorr 
 	ZMCEffBE = ZBEEff - ZBEEffCorr
 	ZMCEffEE = ZEEEff - ZEEEffCorr
 	
-	#Multiply (average?) frequency of each category with its efficiency
-	ZMCEff = (ZMCEffBB * ZBB_rate + ZMCEffBE * ZBE_rate + ZMCEffEE * ZEE_rate)/ (ZBB_rate + ZBE_rate + ZEE_rate) 
-        #Better take the actual frequency?
-        #ZMCEff = (ZMCEffBB*Zyield_BB_i + ZMCEffBE*(Zyield_i-Zyield_BB_i-Zyield_EE_i) + ZMCEffEE*Zyield_EE_i) / Zyield_i
+	#Multiply average frequency of each category with its efficiency
+	ZMCEff = (ZMCEffBB * ZBBRate + ZMCEffBE * ZBERate + ZMCEffEE * ZEERate)/ (ZBBRate + ZBERate + ZEERate) 
+        #Or better take the actual frequency?
+        #ZMCEff = (ZMCEffBB*Zyield_BB_m + ZMCEffBE*(Zyield_m-Zyield_BB_m-Zyield_EE_m) + ZMCEffEE*Zyield_EE_m) / Zyield_m
         
         log.debug("======ZToMuMuEff: %f",ZMCEff)
         log.debug("======ZToMuMuEff: %f, %f ,%f, %f, %f, %f",ZMCEffBB, ZMCEffBE, ZMCEffEE, ZBBEff, ZBEEff, ZEEEff)
 
 	#End products (about 1% fake rate)
-        ZXSec  = Zyield_i*(1-Zfp_rate)/(ZMCEff*recLumi_i)
-        ZRate  = Zyield_i*(1-Zfp_rate)/(ZMCEff*timeWindow_i*deadtime_i)
+        ZXSec  = Zyield_m*(1-ZfpRate)/(ZMCEff*recLumi_m)
+        ZRate  = Zyield_m*(1-ZfpRate)/(ZMCEff*timeWindow_m*deadtime_m)
         log.debug("======ZXSec: %f",ZXSec)
         log.debug("======ZRate: %f",ZRate)
 
 	#Variables to write in csv file
         fillarray.append(fill)
 
-	#datestamp_low=time_chunks[chunk_i][0].split(" ")
-	#date_low=ROOT.TDatime(currentYear,int(datestamp_low[0].split("/")[0]),int(datestamp_low[0].split("/")[1]),int(datestamp_low[1].split(":")[0]),int(datestamp_low[1].split(":")[1]),int(datestamp_low[1].split(":")[2]))
-        #datestamp_up=time_chunks[chunk_i][-1].split(" ")
-	#date_up=ROOT.TDatime(currentYear,int(datestamp_up[0].split("/")[0]),int(datestamp_up[0].split("/")[1]),int(datestamp_up[1].split(":")[0]),int(datestamp_up[1].split(":")[1]),int(datestamp_up[1].split(":")[2]))
-
-
-        beginTime.append(time_chunks[chunk_i][0])
-        endTime.append(time_chunks[chunk_i][-1])
+        beginTime.append(datestampLow_m)
+        endTime.append(datestampUp_m)
         Zrate.append(ZRate)
-        instDel.append(delLumi_i/timeWindow_i)
-        lumiDel.append(delLumi_i)
-	pileUp.append(avgPileup_i)
-        ZyieldDel.append(Zyield_i*(1-Zfp_rate)/(ZMCEff*deadtime_i))
+        instDel.append(delLumi_m/timeWindow_m)
+        lumiDel.append(delLumi_m)
+	pileUp.append(avgpu_m)
+        ZyieldDel.append(Zyield_m*(1-ZfpRate)/(ZMCEff*deadtime_m))
 
 	#Additional variables to write in efficiency csv file
-        ZyieldRec.append(Zyield_i*(1-Zfp_rate))
-        lumiRec.append(recLumi_i)
-        windowarray.append(timeWindow_i)
-        deadTime.append(deadtime_i)
-        beginLS.append(LSchunks[chunk_i][0])
-        endLS.append(LSchunks[chunk_i][-1])
+        ZyieldRec.append(Zyield_m*(1-ZfpRate)/ZMCEff)
+        lumiRec.append(recLumi_m)
+        windowarray.append(timeWindow_m)
+        deadTime.append(deadtime_m)
+        beginLS.append(goodLSlist[0])
+        endLS.append(goodLSlist[-1])
 	#Efficiency related
-    	HLTeffB.append(HLTeffB_i)
-    	HLTeffE.append(HLTeffE_i)
-        SITeffB.append(SITeffB_i)
-        SITeffE.append(SITeffE_i)
-        StaeffB.append(StaeffB_i)
-        StaeffE.append(StaeffE_i)
+    	HLTeffB.append(HLTeffB_m)
+    	HLTeffE.append(HLTeffE_m)
+        SITeffB.append(SITeffB_m)
+        SITeffE.append(SITeffE_m)
+        StaeffB.append(StaeffB_m)
+        StaeffE.append(StaeffE_m)
 
         ZMCeff.append(ZMCEff)
         ZMCeffBB.append(ZMCEffBB)
@@ -433,6 +338,8 @@ for run_i in range(0,len(fillRunlist)):
         ZBBeff.append(ZBBEff)
         ZBEeff.append(ZBEEff)
         ZEEeff.append(ZEEEff)
+
+        nMeasurements=nMeasurements+1
 
     ## Write Per Run CSV Files 
     print "Writing per Run CSV file"

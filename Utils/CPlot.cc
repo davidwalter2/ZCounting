@@ -570,10 +570,10 @@ void CPlot::Draw(TCanvas *c, bool doSave, TString format, Int_t subpad)
     
     if(vHists.size()>0) {
       vHists[ifirst]->SetTitle(fTitle);
-      vHists[ifirst]->GetXaxis()->SetTitle(fXTitle);
-      vHists[ifirst]->GetYaxis()->SetTitle(fYTitle);
-      vHists[ifirst]->SetLineWidth(2);
-      vHists[ifirst]->Draw(vHistOpts[ifirst].Data());
+      //vHists[ifirst]->GetXaxis()->SetTitle(fXTitle);
+      //vHists[ifirst]->GetYaxis()->SetTitle(fYTitle);
+      //vHists[ifirst]->SetLineWidth(2);
+      //vHists[ifirst]->Draw(vHistOpts[ifirst].Data());
     }
    
     //
@@ -620,6 +620,12 @@ void CPlot::Draw(TCanvas *c, bool doSave, TString format, Int_t subpad)
       char opt[100];
       sprintf(opt,"same%s",vHistOpts[i].Data());    
       h->Draw(opt);
+      h->GetXaxis()->SetTitleOffset(1.0); 
+      h->GetXaxis()->SetTitleSize(h->GetYaxis()->GetTitleSize());
+      h->GetXaxis()->SetTitle(fXTitle);
+      h->GetYaxis()->SetTitle(fYTitle);
+      c->Modified();
+      c->Update();
     }
   }  
   
