@@ -148,6 +148,7 @@ for run in data.drop_duplicates('run')['run'].values:
     beginTime=[]
     endTime=[]
     Zrate=array('d')
+    ZrateUnCorr=array('d')
     instDel=array('d')
     lumiDel=array('d')
     pileUp=array('d')
@@ -190,19 +191,21 @@ for run in data.drop_duplicates('run')['run'].values:
 	eosFile=eosFileList[0]
 
     print "The file exists: "+str(eosFile)+" for run  "+str(run)
-    log.info("===Looping over LSchunks...")
+    log.info("===Looping over measurements...")
 
     while len(LSlist) > 0: #begin next measurement "m"
         log.debug("Openning DQMIO.root file: %s", eosFile)
 
         f1 = ROOT.TFile(eosFile)
         h_yield_Z = f1.Get("DQMData/Run "+str(run)+"/ZCounting/Run summary/Histograms/h_yield_Z")
-        h_npv = f1.Get("DQMData/Run "+str(run)+"/ZCounting/Run summary/Histograms/h_npv").ProjectionX()
+        # number of events in each ls (which may or may not have a Z candidate)
+        h_n0 = f1.Get("DQMData/Run "+str(run)+"/ZCounting/Run summary/Histograms/h_npv").ProjectionX() 
         # produce goodLSlist with ls that are used for one measurement
         # Each measurement should have more than 5000 Z's, If the last measurement is smaller, combine it
         # Note: lumisection 'n' is stored in histogram bin 'n+1'
         #   therefore we have to add 1 to the lumisection in question
         Zyield_m = 0
+        n0list = []
         goodLSlist = []
         while Zyield_m < ZperMeasurement or (len(LSlist) > 0 and h_yield_Z.Integral(LSlist[0]+1,LSlist[-1]+1) < ZperMeasurement): 
             if len(LSlist) < 1:
@@ -211,12 +214,14 @@ for run in data.drop_duplicates('run')['run'].values:
             if LSlist[0] > h_yield_Z.GetNbinsX():
                 log.error("======Lumi Section not stored in root file")
                 break
-            if h_npv.GetBinContent(LSlist[0]+1) > 0:
+            n0_ls = h_n0.GetBinContent(LSlist[0]+1)
+            if n0_ls > 0:
                 Zyield_m += h_yield_Z.GetBinContent(LSlist[0]+1)
+                n0list.append(n0_ls)
                 goodLSlist.append(LSlist[0])
             del LSlist[0]
 
-        avgpu_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['avgpu'].values)/len(goodLSlist)
+        avgpu_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['avgpu'].values * np.array(n0list))/sum(n0list)
         recLumi_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['recorded(/pb)'].values)
         delLumi_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['delivered(/pb)'].values)
         deadtime_m = recLumi_m/delLumi_m
@@ -283,15 +288,18 @@ for run in data.drop_duplicates('run')['run'].values:
 	#ZtoMuMu efficiency correction as a parametrized function of pile-up
         ZBBEffCorr = f_ZBBEffCorr(avgpu_m)
 	ZBEEffCorr = f_ZBEEffCorr(avgpu_m)
-	ZEEEffCorr = f_ZEEEffCorr(avgpu_m)
+        ZEEEffCorr = f_ZEEEffCorr(avgpu_m)
 
 	#ZtoMuMu efficiency after correction 
 	ZMCEffBB = ZBBEff - ZBBEffCorr 
 	ZMCEffBE = ZBEEff - ZBEEffCorr
 	ZMCEffEE = ZEEEff - ZEEEffCorr
 	
+
 	#Multiply average frequency of each category with its efficiency
 	ZMCEff = (ZMCEffBB * ZBBRate + ZMCEffBE * ZBERate + ZMCEffEE * ZEERate)/ (ZBBRate + ZBERate + ZEERate) 
+        ZEff = (ZBBEff * ZBBRate + ZBEEff * ZBERate + ZEEEff * ZEERate)/ (ZBBRate + ZBERate + ZEERate)
+
         #Or better take the actual frequency?
         #ZMCEff = (ZMCEffBB*Zyield_BB_m + ZMCEffBE*(Zyield_m-Zyield_BB_m-Zyield_EE_m) + ZMCEffEE*Zyield_EE_m) / Zyield_m
         
@@ -299,16 +307,18 @@ for run in data.drop_duplicates('run')['run'].values:
         log.debug("======ZToMuMuEff: %f, %f ,%f, %f, %f, %f",ZMCEffBB, ZMCEffBE, ZMCEffEE, ZBBEff, ZBEEff, ZEEEff)
 
 	#End products (about 1% fake rate)
-        ZXSec  = Zyield_m*(1-ZfpRate)/(ZMCEff*recLumi_m)
+        ZMCXSec  = Zyield_m*(1-ZfpRate)/(ZMCEff*recLumi_m)
+        ZRateUnCorr  = Zyield_m*(1-ZfpRate)/(ZEff*timeWindow_m*deadtime_m)
         ZRate  = Zyield_m*(1-ZfpRate)/(ZMCEff*timeWindow_m*deadtime_m)
-        log.debug("======ZXSec: %f",ZXSec)
+        log.debug("======ZMCXSec: %f",ZMCXSec)
         log.debug("======ZRate: %f",ZRate)
 
 	#Variables to write in csv file
         fillarray.append(fill)
 
-        beginTime.append(datestampLow_m)
-        endTime.append(datestampUp_m)
+        beginTime.append(data_run.loc[data_run['ls'] == goodLSlist[0]]['time'].values[0])
+        endTime.append(data_run.loc[data_run['ls'] == goodLSlist[-1]]['time'].values[0])
+        ZrateUnCorr.append(ZRateUnCorr)
         Zrate.append(ZRate)
         instDel.append(delLumi_m/timeWindow_m)
         lumiDel.append(delLumi_m)
@@ -316,7 +326,7 @@ for run in data.drop_duplicates('run')['run'].values:
         ZyieldDel.append(Zyield_m*(1-ZfpRate)/(ZMCEff*deadtime_m))
 
 	#Additional variables to write in efficiency csv file
-        ZyieldRec.append(Zyield_m*(1-ZfpRate)/ZMCEff)
+        ZyieldRec.append(Zyield_m*(1-ZfpRate))
         lumiRec.append(recLumi_m)
         windowarray.append(timeWindow_m)
         deadTime.append(deadtime_m)
@@ -345,15 +355,14 @@ for run in data.drop_duplicates('run')['run'].values:
     print "Writing per Run CSV file"
     with open(args.dirCSV+'csvfile'+str(run)+'.csv','wb') as file:
         for c in range(0,nMeasurements):
-		print str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c]) 
-                file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c]))
-		file.write('\n')
+		wline = str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c])+","+str(ZrateUnCorr[c]) 
+                print(wline)
+                file.write(wline + '\n')
 
     with open(args.dirCSV+'effcsvfile'+str(run)+'.csv','wb') as file:
         for c in range(0,nMeasurements):
-		print str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c]) 
-                file.write(str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c])+","+str(beginLS[c])+","+str(endLS[c])+","+str(lumiRec[c])+","+str(windowarray[c])+","+str(HLTeffB[c])+","+str(HLTeffE[c])+","+str(SITeffB[c])+","+str(SITeffE[c])+","+str(StaeffB[c])+","+str(StaeffE[c])+","+str(ZMCeff[c])+","+str(ZMCeffBB[c])+","+str(ZMCeffBE[c])+","+str(ZMCeffEE[c])+","+str(ZBBeff[c])+","+str(ZBEeff[c])+","+str(ZEEeff[c])+","+str(pileUp[c]))
-                file.write('\n')
+		wline = str(int(fillarray[c]))+","+str(beginTime[c])+","+str(endTime[c])+","+str(Zrate[c])+","+str(instDel[c])+","+str(lumiDel[c])+","+str(ZyieldDel[c])+","+str(beginLS[c])+","+str(endLS[c])+","+str(lumiRec[c])+","+str(windowarray[c])+","+str(HLTeffB[c])+","+str(HLTeffE[c])+","+str(SITeffB[c])+","+str(SITeffE[c])+","+str(StaeffB[c])+","+str(StaeffE[c])+","+str(ZMCeff[c])+","+str(ZMCeffBB[c])+","+str(ZMCeffBE[c])+","+str(ZMCeffEE[c])+","+str(ZBBeff[c])+","+str(ZBEeff[c])+","+str(ZEEeff[c])+","+str(pileUp[c])
+                file.write(wline + '\n')
 
 
 ## Write Big CSV File
@@ -361,7 +370,7 @@ print "Writing overall CSV file"
 if args.writeSummaryCSV:
 	rateFileList=sorted(glob.glob(args.dirCSV+'csvfile*.csv'))	
 	with open(args.dirCSV+'Mergedcsvfile.csv','w') as file:
-		file.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount")
+		file.write("fill,beginTime,endTime,ZRate,instDelLumi,delLumi,delZCount,ZrateUnCorr")
 		file.write('\n')
 		print "There are "+str(len(rateFileList))+" runs in the directory"
 		for m in range(0,len(rateFileList)):						
