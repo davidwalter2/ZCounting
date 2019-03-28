@@ -19,10 +19,9 @@ import math
 ROOT.gROOT.SetBatch(True)
 
 ROOT.gStyle.SetCanvasPreferGL(1)
+ROOT.gStyle.SetTitleX(.3)
 
 parser = argparse.ArgumentParser()
-
-ZeffUnc=0.03
 
 parser.add_argument("-c", "--cms", default="nothing", type=string, help="give the CMS csv as input")
 parser.add_argument("-s", "--saveDir", default='./', type=str, help="give output dir")
@@ -32,12 +31,25 @@ if args.cms=="nothing":
 	print "please provide cms input files"
 	sys.exit()
 
-
 print args.cms
 
+########## Constants ##########
+
+# total cross section from theory in NNLO [pb] (from http://inspirehep.net/record/1404393)
+ZCrossSec = 1870
+ZCrossSec_Unc = [50,40] # [+,-]
+
+# Fiducial face space for muon p_t > 27 GeV && |eta| < 2.4 && 66GeV < M(mumu) < 116 (from Jakob)
+Acceptance = 0.342367
+
+ZCrossSec *= Acceptance
+ZCrossSec_Unc *= Acceptance
+
+ZeffUnc=0.03
+
+########## Data Acquisition ##########
+
 data=pandas.read_csv(str(args.cms), sep=',',low_memory=False)#, skiprows=[1,2,3,4,5])
-#print data.axes
-#print data.keys
 fills=data.drop_duplicates('fill')['fill'].tolist()
 zcountlist=data.groupby('fill')['delZCount'].apply(list)
 delLumilist=data.groupby('fill')['delLumi'].apply(list)
@@ -47,7 +59,6 @@ fil=array('d')
 zcountl=array('d')
 timel=array('d')
 fil=fills
-
 
 cmsfile=open(str(args.cms))
 suffix=""
@@ -65,28 +76,19 @@ linescms=cmsfile.readlines()
 
 metaFills=array('d')
 metaXsecCMS=array('d')
-metaXsecATLAS=array('d')
-metaZLumiRatio=array('d')
-metaZLumiRatioEx=array('d')
-metaZLumiRatioEy=array('d')
 
 zcountsAccu=0
 metazcountsAccu=array('d')
 metazcountsoverlumi=array('d')
 
-
-#print timelist
+########## Plot ##########
 
 for fill in fills:
-	#print("zcountlist[fill]", zcountlist[fill])
 	zcountl.append(sum(zcountlist[fill]))
 	zcountsAccu=zcountsAccu+sum(zcountlist[fill])
 	metazcountsAccu.append(zcountsAccu)
 	dateZ=timelist[fill][-1].split(" ")
-	#print dateZ
 	dateZ2=ROOT.TDatime(2018,int(dateZ[0].split("/")[0]),int(dateZ[0].split("/")[1]),int(dateZ[1].split(":")[0]),int(dateZ[1].split(":")[1]),int(dateZ[1].split(":")[2]))
-#	print dateZ2.GetDate()
-#	print dateZ2.GetTime()
 	
 	timel.append(dateZ2.Convert())
 	cmsRates=array('d')
@@ -98,28 +100,9 @@ for fill in fills:
 	cmsXsecEx=array('d')
 	cmsXsecEy=array('d')
 
-	atlasRates=array('d')
-	atlasRatesE=array('d')
-	atlasTimes=array('d')
-	atlasTimesE=array('d')
-	atlasInstLum=array('d')
-	atlasXsec=array('d')
-	atlasXsecEx=array('d')
-	atlasXsecEy=array('d')
-
-	#ZintRatio=array('d')
-
-	atlascmsratio=array('d')
-	atlascmsratioerrorX=array('d')
-	atlascmsratioerrorXE=array('d')
-	atlascmsratioerrorY=array('d')
-	atlascmsratioerrorYE=array('d')
-	
 	k=0
 	for linecms in range(0,len(linescms)):
 		elements=linescms[linecms].split(",")
-		#print fill
-		#print elements[0]
 		if elements[0]==str(fill):
 			
 			rate=elements[3]
@@ -130,8 +113,6 @@ for fill in fills:
 			cmsRatesE.append(float(rate)*math.sqrt( ( math.sqrt(float(elements[6]))/float(elements[6]) )**2 + ZeffUnc**2 ))
 			datestamp=elements[1].split(" ")
 			date=ROOT.TDatime(2018,int(datestamp[0].split("/")[0]),int(datestamp[0].split("/")[1]),int(datestamp[1].split(":")[0]),int(datestamp[1].split(":")[1]),int(datestamp[1].split(":")[2]))
-			#print datestamp
-			#print date.Convert()
 			cmsTimes.append(date.Convert())
 			cmsTimesE.append(date.Convert()-date.Convert())
 			cmsInstLum.append(float(elements[4]))
@@ -139,7 +120,6 @@ for fill in fills:
 			cmsXsecEy.append((float(elements[3])/float(elements[4]))*0.02)
 
 
-	#print "here1"
 	if len(cmsTimes)==0:
 		continue
 
@@ -177,7 +157,7 @@ for fill in fills:
 	shutil.rmtree(args.saveDir+"PlotsFill_"+str(fill), ignore_errors=True)
 	os.makedirs(args.saveDir+"PlotsFill_"+str(fill))
 	
-
+        ### Z Rates ###
 	c1=ROOT.TCanvas("c1","c1",1000,600)	
 	graph_cms.GetXaxis().SetTimeDisplay(1)
 	graph_cms.SetTitle(suffix+" Z-Rates, Fill "+str(fill))
@@ -190,7 +170,6 @@ for fill in fills:
 	graph_cms.GetXaxis().SetLabelSize(0.05)
 	graph_cms.GetYaxis().SetLabelSize(0.05)
 	graph_cms.GetXaxis().SetRangeUser(startTime,endTime)
-
 		
 	c1.cd(1)
 	graph_cms.Draw("AP")
@@ -203,10 +182,11 @@ for fill in fills:
 	text1.Draw()
 	c1.cd(1)
 	c1.Update()
-	#c1.SaveAs("zrates"+str(fill)+suffix+".root")
 	c1.SaveAs(args.saveDir+"PlotsFill_"+str(fill)+"/zrates"+str(fill)+suffix+".png")
 	c1.Close()
 	
+        ### Cross sections ###
+
 	metaXsecCMS.append(sum(cmsXsec)/len(cmsXsec))	
 	metaFills.append(float(fill))	
 
@@ -214,8 +194,6 @@ for fill in fills:
 	for n in range(0,len(cmsXsec)):
 		cmsXsec2.append(cmsXsec[n]/(sum(cmsXsec)/len(cmsXsec)))		
 	
-	#print "CROSS SECTIONS"
-	#print cmsXsec
 	graph_cmsXsec2=ROOT.TGraph(len(cmsXsec),cmsTimes,cmsXsec)
 	graph_cmsXsec2.SetName("graph_cmsXsec")
 	graph_cmsXsec2.SetTitle(suffix+" Z-Rates, Fill "+str(fill))
@@ -224,7 +202,7 @@ for fill in fills:
 	graph_cmsXsec2.SetFillStyle(0)
 	graph_cmsXsec2.SetMarkerSize(1.5)
 	graph_cmsXsec2.GetXaxis().SetTimeDisplay(1)
-	graph_cmsXsec2.GetYaxis().SetTitle("#sigma^{fid}_{Z} [pb]")#/<#sigma^{fid}_{Z}>")
+	graph_cmsXsec2.GetYaxis().SetTitle("#sigma^{fid}_{Z} [pb]")
 	graph_cmsXsec2.GetYaxis().SetTitleSize(0.06)
 	graph_cmsXsec2.GetYaxis().SetTitleOffset(0.80)
 	graph_cmsXsec2.GetXaxis().SetTitle("Time")
@@ -232,7 +210,6 @@ for fill in fills:
 	graph_cmsXsec2.GetXaxis().SetTitleOffset(0.72)
 	graph_cmsXsec2.GetXaxis().SetLabelSize(0.05)
 	graph_cmsXsec2.GetYaxis().SetLabelSize(0.05)	
-	#graph_cmsXsec2.GetYaxis().SetRangeUser(600,700)
 
 	c4=ROOT.TCanvas("c4","c4",1000,600)
 	c4.SetGrid()	
@@ -240,8 +217,8 @@ for fill in fills:
 	
 	legend=ROOT.TLegend(0.75,0.75,0.9,0.9)
 	legend.AddEntry(graph_cmsXsec2,"CMS","p")
-	#legend.Draw()
-	text=ROOT.TText(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+	
+        text=ROOT.TText(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 	text.SetNDC()
 	text.Draw()
 	text2=ROOT.TLatex(0.6,0.23,"#splitline{66 GeV<M(#mu#mu) < 116 GeV}{p_{T}(#mu)>27 GeV, |#eta(#mu)|<2.4}")
@@ -252,6 +229,8 @@ for fill in fills:
 		
 	c4.Close()
 	
+
+### fiducial cross section per fill
 	
 ROOT.gROOT.SetBatch(True)
 metaXsecCMS2=array('d')
@@ -269,14 +248,13 @@ graph_metacmsXsec.SetTitle("Cross Section Summary, "+suffix+" Z-Rates")
 multMetaGraphXsec=ROOT.TMultiGraph("multMetaGraphXsec",suffix+" Z-Rates")
 multMetaGraphXsec.SetName("multMetaGraphXsec")
 graph_metacmsXsec.GetXaxis().SetTitle("Fill")
-graph_metacmsXsec.GetYaxis().SetTitle("#sigma^{fid}_{Z} [pb]")#/<#sigma^{fid}_{Z}>")
+graph_metacmsXsec.GetYaxis().SetTitle("#sigma^{fid}_{Z} [pb]")
 graph_metacmsXsec.GetXaxis().SetTitleSize(0.06)
 graph_metacmsXsec.GetYaxis().SetTitleSize(0.06)
 graph_metacmsXsec.GetXaxis().SetTitleOffset(0.72)
 graph_metacmsXsec.GetYaxis().SetTitleOffset(0.8)
 graph_metacmsXsec.GetXaxis().SetLabelSize(0.05)
 graph_metacmsXsec.GetYaxis().SetLabelSize(0.05)
-#graph_metacmsXsec.GetYaxis().SetRangeUser(600,700)
 
 multMetaGraphXsec.Add(graph_metacmsXsec)
 
@@ -289,13 +267,6 @@ graph_metacmsXsec.Draw("AP")
 
 print(suffix)
 
-#if suffix=="Barrel":
-#	graph_metacmsXsec.GetYaxis().SetRangeUser(600,700)
-#if suffix=="Inclusive":
-#	print("set y axis range...")
-#	graph_metacmsXsec.GetYaxis().SetRangeUser(600,700)
-
-
 text=ROOT.TLatex(0.3,0.83,"CMS Automatic, produced: "+datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 text.SetNDC()
 text.Draw()
@@ -306,16 +277,16 @@ text2.Draw()
 c3.SaveAs(args.saveDir+"summaryZStability"+suffix+".png")
 c3.Close()
 
+### corrected Z Counts per fill
+
 graph_zcount=ROOT.TGraph(len(metaFills),metaFills,zcountl)
-#print("metaFills= ",metaFills)
-#print("zcount= ", zcountl)
 graph_zcount.SetName("graph_zcount")
 graph_zcount.SetMarkerStyle(22)
 graph_zcount.SetMarkerColor(kOrange+8)
 graph_zcount.SetMarkerSize(2.5)
 graph_zcount.SetTitle("Z Counts Per Fill")
 graph_zcount.GetXaxis().SetTitle("Fill")
-graph_zcount.GetYaxis().SetTitle("Z Count")#/<#sigma^{fid}_{Z}>")
+graph_zcount.GetYaxis().SetTitle("Z Count")
 graph_zcount.GetXaxis().SetTitleSize(0.06)
 graph_zcount.GetYaxis().SetTitleSize(0.06)
 graph_zcount.GetXaxis().SetTitleOffset(0.72)
@@ -344,9 +315,9 @@ text3.Draw()
 c5.SaveAs(args.saveDir+"ZCountPerFill"+suffix+".png")
 c5.Close()
 
+### Accumalated corrected Z counts 
+
 graph_zcountA=ROOT.TGraph(len(metaFills),timel,metazcountsAccu)
-#print("timel=",timel)
-#print("metazcountsAccu= " ,metazcountsAccu)
 graph_zcountA.SetName("graph_zcountAccu")
 graph_zcountA.SetMarkerStyle(22)
 graph_zcountA.SetMarkerColor(kOrange+8)
@@ -354,9 +325,8 @@ graph_zcountA.SetMarkerSize(2.5)
 graph_zcountA.SetTitle("Accumulated Z Bosons over Time")
 graph_zcountA.GetXaxis().SetTitle("Time")
 graph_zcountA.GetXaxis().SetTimeDisplay(1)
-#graph_zcountA.GetXaxis().SetTimeFormat("%Y-%m-%d %H:%M");
 graph_zcountA.GetXaxis().SetTimeOffset(0,"gmt")
-graph_zcountA.GetYaxis().SetTitle("Z Count")#/<#sigma^{fid}_{Z}>")
+graph_zcountA.GetYaxis().SetTitle("Z Count")
 graph_zcountA.GetXaxis().SetTitleSize(0.06)
 graph_zcountA.GetYaxis().SetTitleSize(0.06)
 graph_zcountA.GetXaxis().SetTitleOffset(0.72)
@@ -365,7 +335,6 @@ graph_zcountA.GetXaxis().SetLabelSize(0.05)
 graph_zcountA.GetYaxis().SetLabelSize(0.05)
 graph_zcountA.GetXaxis().SetLabelSize(0.05)
 graph_zcountA.GetYaxis().SetLabelSize(0.05)
-
 
 c6=ROOT.TCanvas("c6","c6",1000,600)
 c6.SetGrid()

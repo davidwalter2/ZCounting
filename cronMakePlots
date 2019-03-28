@@ -8,11 +8,12 @@ cd ZCounting
 
 cmsCSV=/eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/csvFiles/Mergedcsvfile.csv
 cmsEffCSV=/eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/csvFiles/Mergedeffcsvfile.csv
+atlasCSV=/afs/cern.ch/user/p/ponyisi/public/zlumi/atlas_2018.csv
 
-#python plot_Zrate_DataCMS.py --cms $cmsEffCSV --saveDir /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZCrossSectionMonitoring/
+python Plotting/plot_Zrate_DataCMS.py --cms $cmsEffCSV --saveDir /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZCrossSectionMonitoring/
 
-#python plot_ZEfficiency_DataCMS.py --cms $cmsEffCSV --saveDir /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZAndMuonEfficiencies/
+python Plotting/plot_ZEfficiency_DataCMS.py --cms $cmsEffCSV --saveDir /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZAndMuonEfficiencies/
 
-python makeZvsL.py --cms $cmsCSV --saveDir /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZCrossSectionMonitoring/
+python Plotting/makeZvsL.py --cms $cmsCSV --saveDir /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZCrossSectionMonitoring/
 
-#python ../ZRates/plottingTools/plot_Zrate_Data.py --cms $cmsCSV --atlas /afs/cern.ch/user/p/ponyisi/public/zlumi/atlas_2018.csv -s /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZCrossSectionMonitoring/
+python Plotting/plot_Zrate_Data_CMSvsATLAS.py --cms $cmsCSV --atlas $atlasCSV -s /eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/ZCrossSectionMonitoring/

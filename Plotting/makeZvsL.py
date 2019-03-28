@@ -20,10 +20,10 @@ args = parser.parse_args()
 
 
 ROOT.gStyle.SetCanvasPreferGL(1)
-cmsfile=open(args.cms)
+#cmsfile=open(args.cms)
 #cmsfile=open("/afs/cern.ch/user/l/lumipro/public/ZRatesFiles/2017Rates/ZCounting2017_CMS_Scaled_YYMMDD_v1.csv")
 #cmsfile=open("Z_Counting_AllFillsAfter5400_Allplus.txt")
-#cmsfile=open("/afs/cern.ch/user/l/lumipro/public/ZRatesFiles/2018Rates/ZCounting2018_CMS_Scaled_MMDDYY_v1.csv")
+cmsfile=open("/eos/home-d/dwalter/www/ZCounting/CMS-2018-ZRateData/csvFiles/Mergedcsvfile.csv")
 linescms=cmsfile.readlines()
 
 cmsRates=array('d')
@@ -35,9 +35,9 @@ for line in linescms:
 	if k<=1:
 		continue
 	elements=line.split(",")
-	if float(elements[3])/float(elements[4])<500. or float(elements[3])/float(elements[4])>900.:
+	if float(elements[7])/float(elements[4])<500. or float(elements[7])/float(elements[4])>900.:
 		continue
-	cmsRates.append(float(elements[3])*1./float(elements[4]))
+	cmsRates.append(float(elements[7])*1./float(elements[4]))
 	cmsL.append(float(elements[4]))
 	
 
@@ -56,5 +56,5 @@ graph_metaatlasXsec.Fit("pol1","","",0.0045,0.018)
 c3=ROOT.TCanvas("c3","c3",1000,600)
 c3.SetGrid()
 graph_metaatlasXsec.Draw("AP")
-c3.SaveAs(args.saveDir+"xL18v2.png")
+c3.SaveAs(args.saveDir+"xL18v2_Uncorrected.png")
 #c3.SaveAs(args.saveDir+"xL18v2.root")
