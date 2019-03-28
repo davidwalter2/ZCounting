@@ -56,7 +56,7 @@ mcShapeSubDir= args.dirMCShape# "MCFiles/92X_norw_IsoMu27_noIso/"
 secPerLS=float(23.3)
 currentYear=2018
 maximumLS=2500
-ZperMeasurement=10000 #required number of Z per measurement
+ZperMeasurement=7500 #required number of Z per measurement
 staFitChi2Th=2.      #threshold on chi2 to trigger protection mechanism
 staFitEffThHi=0.999  #threshold on eff. to trigger protection mechanism
 staFitEffThLo=0.95   #threshold on eff. to trigger protection mechanism
@@ -105,7 +105,7 @@ ROOT.gROOT.SetBatch(True)
 log.info("Loading input byls csv...")
 lumiFile=open(str(inFile))
 lumiLines=lumiFile.readlines()
-data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=[0,len(lumiLines)-11,len(lumiLines)-10,len(lumiLines)-9,len(lumiLines)-8,len(lumiLines)-7,len(lumiLines)-6,len(lumiLines)-5,len(lumiLines)-4,len(lumiLines)-3,len(lumiLines)-2,len(lumiLines)-1,len(lumiLines)])
+data=pandas.read_csv(inFile, sep=',',low_memory=False, skiprows=lambda x: lumiLines[x].startswith('#') and not lumiLines[x].startswith('#run'))
 log.debug("%s",data.axes)
 log.info("Loading input byls csv DONE...")
 #formatting the csv
@@ -114,11 +114,15 @@ data['run'] = pandas.to_numeric(data['#run:fill'].str.split(':',expand=True)[0])
 data['ls'] = pandas.to_numeric(data['ls'].str.split(':',expand=True)[0])
 data = data.drop(['#run:fill','hltpath','source'],axis=1)
 
+
 if 'delivered(/ub)' in data.columns.tolist():      #convert to /pb
     data['delivered(/ub)'] = data['delivered(/ub)'].apply(lambda x:x / 1000000.)
     data['recorded(/ub)'] = data['recorded(/ub)'].apply(lambda x:x / 1000000.)
     data = data.rename(index=str, columns={'delivered(/ub)':'delivered(/pb)', 'recorded(/ub)':'recorded(/pb)' })
 
+#if there are multiple entries of the same ls (for example from different triggers), only keep the one with the highest luminosity. 
+data = data.sort_values(['fill','run','ls','delivered(/pb)'])
+data = data.drop_duplicates(['fill','run','ls'])
 
 log.info("Looping over runs...")
 for run in data.drop_duplicates('run')['run'].values:
@@ -201,7 +205,7 @@ for run in data.drop_duplicates('run')['run'].values:
         # number of events in each ls (which may or may not have a Z candidate)
         h_n0 = f1.Get("DQMData/Run "+str(run)+"/ZCounting/Run summary/Histograms/h_npv").ProjectionX() 
         # produce goodLSlist with ls that are used for one measurement
-        # Each measurement should have more than 5000 Z's, If the last measurement is smaller, combine it
+        # Each measurement should have more than 'ZperMeasurement' Z's, If the last measurement is smaller, combine it
         # Note: lumisection 'n' is stored in histogram bin 'n+1'
         #   therefore we have to add 1 to the lumisection in question
         Zyield_m = 0
@@ -220,8 +224,11 @@ for run in data.drop_duplicates('run')['run'].values:
                 n0list.append(n0_ls)
                 goodLSlist.append(LSlist[0])
             del LSlist[0]
-
+ 
+#        import pdb
+#        pdb.set_trace()
         avgpu_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['avgpu'].values * np.array(n0list))/sum(n0list)
+        
         recLumi_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['recorded(/pb)'].values)
         delLumi_m = sum(data_run.loc[data_run['ls'].isin(goodLSlist)]['delivered(/pb)'].values)
         deadtime_m = recLumi_m/delLumi_m
