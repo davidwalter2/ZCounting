@@ -3,16 +3,17 @@
 This code is to run over Z Counting histograms produced in DQM Offline and produce a CSV file with Z rates. 
 The output file format has been agreed upon with ATLAS in 2016. 
 It can be used to generate plots of the Z rate ratio of CMS/ATLAS. 
-There are also python files to produce control plots of the Z reconstruction efficiencies and Z fiducial cross section.\
+There are also python files to produce control plots of the Z reconstruction efficiencies and Z fiducial cross section.
 
 A CMSSW environment needs to be set up to have the pandas library available.
 
 ## Z Rate Production
 The ZCounting.py is the file to be executed to generate a CSV file with Z rates and additional information. 
-Following parameters should be specified:\
+Following parameters should be specified:
+
 **--dirDQM DIRECTORY**\
 Directory to the input root files from the DQM Offline module. 
-Eg. the DQM Offline root files of the 2018 prompt-reco can be found here:
+Eg. the DQM Offline root files of the 2018 prompt-reco can be found here:/
 https://cmsweb.cern.ch/dqm/offline/data/browse/ROOT/OfflineData/Run2018/SingleMuon/
 
 **--ByLsCSV BRILCALC.csv**\
